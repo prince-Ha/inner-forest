@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Firebase 연결 테스트</title>
+<style>
+  body { font-family: system-ui, sans-serif; background:#f4f1e8; color:#222;
+         display:flex; flex-direction:column; align-items:center; padding:40px 16px; }
+  h1 { font-size:20px; margin-bottom:24px; }
+  #status { font-size:32px; font-weight:700; padding:16px 32px; border-radius:12px;
+            background:#ddd; margin-bottom:24px; }
+  #status.ok { background:#c8f0c8; color:#1b6b1b; }
+  #status.fail { background:#f7c6c6; color:#8a1c1c; }
+  #count { font-size:48px; font-weight:700; }
+  .label { font-size:14px; color:#666; margin-top:8px; }
+  #msg { margin-top:24px; font-size:14px; color:#555; max-width:420px; text-align:center; line-height:1.6; }
+  #where { margin-top:32px; font-size:12px; color:#999; }
+</style>
+</head>
+<body>
+  <h1>🌲 인내의 숲 · 연결 테스트</h1>
+  <div id="status">연결 확인 중...</div>
+  <div id="count">-</div>
+  <div class="label">지금 접속 중인 사람 수</div>
+  <div id="msg"></div>
+  <div id="where"></div>
+
+<!-- 1) 일반 스크립트: Firebase 코드를 못 불러와도 반드시 실행되는 안전장치 -->
+<script>
+  window.__connected = false;
+  document.getElementById("where").textContent =
+    "열린 방식: " + (location.protocol === "file:" ? "파일 직접 열기 (file://)" : location.protocol + "//" + location.host);
+
+  setTimeout(function () {
+    if (window.__connected) return;
+    var s = document.getElementById("status");
+    s.textContent = "연결 안 됨 ❌";
+    s.className = "fail";
+    var m = document.getElementById("msg");
+    if (location.protocol === "file:") {
+      m.textContent = "파일을 직접 열면 브라우저가 Firebase 코드를 막을 수 있어요. GitHub Pages에 올려서 주소로 열어 보세요. 주소로 열어도 안 되면 학교망이 막은 것일 수 있어요.";
+    } else {
+      m.textContent = "Firebase 서버에 닿지 못했어요. 학교망이 firebase 관련 주소를 막고 있을 수 있어요. 이 화면을 캡처해서 알려주세요.";
+    }
+  }, 8000);
+
+  window.addEventListener("error", function (e) {
+    var m = document.getElementById("msg");
+    m.textContent = "오류: " + (e.message || "코드를 불러오지 못했어요");
+  });
+</script>
+
+<!-- 2) Firebase 연결 -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getDatabase, ref, set, push, onValue, onDisconnect }
+    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAABoygMrdlEmv9s2hAxVC78guKihhFLc4",
+    authDomain: "endurance-1210a.firebaseapp.com",
+    databaseURL: "https://endurance-1210a-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "endurance-1210a",
+    storageBucket: "endurance-1210a.firebasestorage.app",
+    messagingSenderId: "945432874903",
+    appId: "1:945432874903:web:b787886eb1c911ac78bed2"
+  };
+
+  const statusEl = document.getElementById("status");
+  const countEl = document.getElementById("count");
+  const msgEl = document.getElementById("msg");
+
+  try {
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    onValue(ref(db, ".info/connected"), (snap) => {
+      if (snap.val() === true) {
+        window.__connected = true;
+        statusEl.textContent = "연결됨 ✅";
+        statusEl.className = "ok";
+        msgEl.textContent = "다른 기기나 탭에서도 이 페이지를 열면 숫자가 올라가요.";
+
+        const myRef = push(ref(db, "testPresence"));
+        onDisconnect(myRef).remove();
+        set(myRef, { joinedAt: Date.now() });
+      }
+    });
+
+    onValue(ref(db, "testPresence"), (snap) => {
+      countEl.textContent = snap.size;
+    });
+  } catch (e) {
+    statusEl.textContent = "오류 ❌";
+    statusEl.className = "fail";
+    msgEl.textContent = String(e);
+  }
+</script>
+</body>
+</html>
