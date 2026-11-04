@@ -1,8 +1,8 @@
 // 같은 방 친구들 (Firebase Realtime Database) — 이번 단계: 내 정보 저장만
-//  - 처음 화면에서 방 코드를 적고 시작하면 rooms/{방코드}/players/{내ID} = { nick, floor, state: 'climb', t }
+//  - 시작하면 rooms/forest/players/{내ID} = { nick(=이름), floor, state: 'climb', charId, t } (방은 하나)
 //  - 발 딛고 선 층이 바뀔 때만 floor·t를 고친다 (위치를 계속 보내지 않음)
 //  - 창을 닫거나 연결이 끊기면 onDisconnect로 내 정보가 지워진다. 처음 화면으로 가도 지운다
-//  - 방 코드가 비어 있으면 아무것도 안 한다. 퀴즈·구글 시트 코드와는 따로 돌아간다
+//  - 퀴즈·구글 시트 코드와는 따로 돌아간다
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getDatabase, ref, set, update, remove, onDisconnect, serverTimestamp,
   onChildAdded, onChildChanged, onChildRemoved }
@@ -11,10 +11,9 @@ import { getDatabase, ref, set, update, remove, onDisconnect, serverTimestamp,
 const SF = window.SF;
 const cfg = window.GAME_CONFIG;
 const $ = (id) => document.getElementById(id);
-const KEY = 'sf-room';
 
-// Firebase 경로에 못 쓰는 글자(. # $ [ ] /)와 공백을 뺀 방 코드
-const cleanRoom = (s) => String(s || '').trim().replace(/[.#$[\]/\s]/g, '').slice(0, 12);
+// 방은 하나만 쓴다 (config.js의 firebase.room, 없으면 'forest'). 닉네임은 입장 때 적은 이름
+const ROOM = String((cfg.firebase && cfg.firebase.room) || 'forest').replace(/[.#$[\]/\s]/g, '') || 'forest';
 const cleanNick = (s) => Array.from(String(s || '').trim()).slice(0, 10).join('');
 // 이 창의 ID (새로 열 때마다 새로: 같은 학생이 두 기기에서 해도 겹치지 않게)
 const myId = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2)).replace(/-/g, '');
@@ -25,12 +24,6 @@ try {
 } catch (e) {
   console.warn('Firebase 시작 실패', e);
 }
-
-// 지난번 방 코드·닉네임 기억 (이 기기에만)
-try {
-  const saved = JSON.parse(localStorage.getItem(KEY) || 'null');
-  if (saved) { $('in-room').value = saved.room || ''; $('in-nick').value = saved.nick || ''; }
-} catch (_) { /* 기억 못 해도 동작 */ }
 
 let me = null; // { room, nick, ref }
 
@@ -130,10 +123,9 @@ function leave() {
 
 function join(name) {
   leave();
-  const room = cleanRoom($('in-room').value);
-  const nick = cleanNick($('in-nick').value) || cleanNick(name);
-  try { localStorage.setItem(KEY, JSON.stringify({ room: $('in-room').value.trim(), nick: $('in-nick').value.trim() })); } catch (_) { /* 무시 */ }
-  if (!db || !room || !nick) return;
+  const room = ROOM;
+  const nick = cleanNick(name);
+  if (!db || !nick) return;
   const r = ref(db, 'rooms/' + room + '/players/' + myId);
   me = { room, nick, ref: r };
   // 끊기면 지우기를 먼저 걸어 두고 저장 (저장만 되고 안 지워지는 일이 없게)
@@ -141,8 +133,6 @@ function join(name) {
     .then(() => set(r, { nick, floor: 1, state: 'climb', charId: SF.game.charId || '', t: serverTimestamp() }))
     .catch((e) => console.warn('방 입장 저장 실패', e));
   watch(room);
-  const who = $('ready-who');
-  if (who) who.textContent += ' · 방 ' + room;
 }
 
 const game = SF && SF.game;

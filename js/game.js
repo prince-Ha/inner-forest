@@ -365,8 +365,7 @@ window.SF = window.SF || {};
     els.app.classList.remove('is-home');
     if (els.readyWho) {
       const who = game.student ? game.student.name + ' · ' + cfg.school.grade + '학년 ' + game.student.classNo + '반' : '';
-      const ch = (SF.CHARACTERS || []).find((c) => c.id === game.charId);
-      els.readyWho.textContent = (ch ? ch.name + '와 함께 ' : '') + who;
+      els.readyWho.textContent = who;
     }
     els.ready.classList.remove('hidden');
     els.finish.classList.add('hidden');

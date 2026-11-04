@@ -57,10 +57,7 @@
         <h1 class="home-title">과학 인내의 숲</h1>
         <p class="home-sub">거대한 나무 속 600층을 끝까지 올라 보세요!</p>
         <label class="field"><span>이름</span><input id="in-name" type="text" maxlength="12" autocomplete="off" enterkeyhint="done" placeholder="이름을 적어 주세요"></label>
-        <label class="field"><span id="grade-label">3학년</span><select id="in-class"></select></label>
-        <label class="field"><span>방 코드</span><input id="in-room" type="text" maxlength="12" autocomplete="off" autocapitalize="characters" placeholder="같이 할 때만 (예: 3-2)"></label>
-        <label class="field"><span>닉네임</span><input id="in-nick" type="text" maxlength="10" autocomplete="off" placeholder="비우면 이름으로"></label>
-        <p class="pick-label">캐릭터</p>
+        <label class="field"><span id="grade-label">3학년</span><select id="in-class"></select></label>        <p class="pick-label">캐릭터</p>
         <div id="char-pick" class="char-pick" role="radiogroup" aria-label="캐릭터 고르기"></div>
         <p id="home-error" class="home-error" role="alert" hidden></p>
         <p id="loading" class="loading" hidden>숲을 만드는 중…</p>
@@ -76,8 +73,8 @@
       <div class="panel">
         <p id="ready-who" class="ready-who"></p>
         <p>◀ ▶ 버튼(또는 ← → 키)을 <strong>누를 때마다</strong> 한 칸씩 올라가요!</p>
-        <p class="hint">다음 계단이 있는 쪽을 누르세요.<br>잘못 누르면 허공으로 떨어져요. 빠르게 연속으로 오르면 콤보!</p>
-        <p class="hint rules">20층마다 과학 퀴즈 · 61층부터 장애물 · <span id="hint-time">등반 시간 15분</span></p>
+        <p class="hint">다음 계단이 있는 쪽을 누르세요.<br>잘못 누르면 허공으로 떨어져요.<br>빠르게 연속으로 오르면 콤보!</p>
+        <p class="hint rules">20층마다 과학 퀴즈<br>61층부터 장애물<br><span id="hint-time">등반 시간 15분</span></p>
         <div id="practice" class="practice" hidden>
           <p class="practice-label">구간 연습 <span>(테스트 모드, 기록 안 남음)</span></p>
           <div id="practice-btns" class="practice-btns"></div>

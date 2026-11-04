@@ -16,8 +16,12 @@ window.GAME_CONFIG = {
   // 시트의 '설정' 탭 비밀번호도 위 teacher.password와 같게 해 주세요 (완주자 목록·한마디 숨기기에 써요)
   sheet: { url: 'https://script.google.com/macros/s/AKfycbwQ0D4lOUtEd_c83Pb872FiFAqh6Ik2y_U3ro74cwj47I4YTBZLNq39m7RjfZPwWw2G/exec' },
 
-  // 같은 방 친구들 (Firebase Realtime Database). 처음 화면에서 방 코드를 적으면 rooms/{방코드}/players에 내 층을 올려요
+  // 구간 연습 버튼에 더하고 싶은 시작 층 (선생님 테스트 모드). 구간 이름 버튼 뒤에 붙어요
+  practiceExtra: [{ floor: 570, label: '최종 구간' }],
+
+  // 같은 방 친구들 (Firebase Realtime Database). 시작하면 rooms/{room}/players에 내 층을 올려요
   firebase: {
+    room: 'forest', // 방은 하나만: 접속한 모두가 같은 방
     apiKey: 'AIzaSyAABoygMrdlEmv9s2hAxVC78guKihhFLc4',
     authDomain: 'endurance-1210a.firebaseapp.com',
     databaseURL: 'https://endurance-1210a-default-rtdb.asia-southeast1.firebasedatabase.app',

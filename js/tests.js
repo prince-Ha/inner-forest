@@ -1234,8 +1234,8 @@
 
   test('practice: start floors and names come from the obstacle zones', () => {
     const list = SF.practiceStarts(CFG);
-    eq(list.map((s) => s.floor).join(','), '61,101,151,201,281,361,441,501');
-    eq(list.map((s) => s.label).join(','), '가시공,원숭이,금 간 발판,도토리,섞어서,겹치기,돌풍,최고 난이도');
+    eq(list.map((s) => s.floor).join(','), '61,101,151,201,281,361,441,501,570');
+    eq(list.map((s) => s.label).join(','), '가시공,원숭이,금 간 발판,도토리,섞어서,겹치기,돌풍,최고 난이도,최종 구간');
   });
 
   test('config: gust settings are checked', () => {

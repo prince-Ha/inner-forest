@@ -557,6 +557,9 @@ window.SF = window.SF || {};
       if (kinds.length) out.push({ floor: from, label: z.name || (kinds.length === 1 ? PRACTICE_NAMES[kinds[0]] : '섞어서') });
       from = z.untilFloor + 1;
     }
+    for (const x of cfg.practiceExtra || []) {
+      if (Number.isInteger(x.floor) && x.floor >= 1 && x.floor <= cfg.totalFloors) out.push({ floor: x.floor, label: String(x.label || '연습') });
+    }
     return out;
   };
 
