@@ -37,9 +37,14 @@ window.SF = window.SF || {};
       const cnv = document.createElement('canvas');
       cnv.width = 48; // 16×24 상자의 3배 (그림은 그 안에 맞춰 그려진다)
       cnv.height = 72;
-      const cg = cnv.getContext('2d');
-      cg.imageSmoothingEnabled = false;
-      SF.drawSprite(cg, game.sprites.characters[c.id].right.idle[0], 0, 0, 3);
+      const paint = () => {
+        const cg = cnv.getContext('2d');
+        cg.clearRect(0, 0, cnv.width, cnv.height);
+        cg.imageSmoothingEnabled = false;
+        SF.drawSprite(cg, game.sprites.characters[c.id].right.idle[0], 0, 0, 3);
+      };
+      paint();
+      if (SF.whenSpritesLoaded) SF.whenSpritesLoaded(paint); // 그림 파일이 늦게 읽히면 다시 그린다
       b.appendChild(cnv);
       b.appendChild(Object.assign(document.createElement('span'), { textContent: c.name }));
       b.addEventListener('click', () => choose(c.id));

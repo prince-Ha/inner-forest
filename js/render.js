@@ -185,10 +185,15 @@ window.SF = window.SF || {};
     function pickFrame(p, move, anim, time, charId) {
       const who = (charId && S.characters[charId]) || S.player;
       const set = p.facing < 0 ? who.left : who.right;
-      if (move.mode === 'hop') return move.kind === 'climb' ? set.step[0] : set.walk[anim.steps % 4];
-      if (!p.grounded && anim.airT > 0.06) return set.fall[Math.floor(time * 8) % 2];
+      // 그림 파일 캐릭터(dur가 있음)는 GIF처럼 차례로 돌고, 뛸 때는 뛰는 진행도(k)에 맞춰 넘어간다
+      const at = (list, i) => list[((i % list.length) + list.length) % list.length];
+      if (move.mode === 'hop') {
+        const list = move.kind === 'climb' ? set.step : set.walk;
+        return list[0].dur ? at(list, Math.floor(move.k * list.length)) : (move.kind === 'climb' ? list[0] : at(list, anim.steps));
+      }
+      if (!p.grounded && anim.airT > 0.06) return at(set.fall, Math.floor(time * 8));
       if (anim.landT < 0.1) return set.land[0];
-      return set.idle[Math.floor(time * 2) % 2];
+      return at(set.idle, Math.floor(time / (set.idle[0].dur || 0.5)));
     }
 
     // 말풍선: 흰 둥근 상자 + 꼬리, 너무 길면 두 줄로

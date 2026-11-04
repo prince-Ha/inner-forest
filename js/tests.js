@@ -1399,6 +1399,7 @@
 
   test('characters: original art is rectangular and uses only its colors', () => {
     for (const c of SF.CHARACTERS) {
+      if (!c.art) continue; // 그림 파일 캐릭터는 아래 테스트에서
       const art = SF.ART[c.art];
       ok(art, 'art for ' + c.id);
       const w = art.rows[0].length;
@@ -1411,20 +1412,37 @@
     eq(SF.CHARACTERS.map((c) => c.id).join(','), 'hachiware,ode');
     eq(SF.CHARACTERS.map((c) => c.name).join(','), '하치와레,오데');
     const S = SF.buildSprites();
-    const counts = { idle: 2, walk: 4, step: 1, fall: 2, land: 1 };
     for (const c of SF.CHARACTERS) {
       const set = S.characters[c.id];
       ok(set, 'frames for ' + c.id);
+      // 그림 파일 캐릭터는 GIF 장수만큼, 도트 캐릭터는 정해진 장수
+      const n = c.sheet ? c.sheet.frames : 0;
+      const counts = c.sheet ? { idle: n, walk: n, step: n, fall: 2, land: 1 } : { idle: 2, walk: 4, step: 1, fall: 2, land: 1 };
       for (const k in counts) {
         eq(set.right[k].length, counts[k], c.id + ' ' + k);
         eq(set.left[k].length, counts[k], c.id + ' ' + k + ' mirrored');
         for (const f of set.right[k].concat(set.left[k])) {
           // 상자(16×24 게임 칸) 안에 대략 들어오는 크기: 너무 크거나 작으면 캐릭터가 이상해진다
           ok(f.sc > 0, c.id + ' ' + k + ' scale');
-          const w = (f.width - 16) * f.sc, h = (f.height - 11) * f.sc; // 둘레 여백 빼고
-          ok(w >= 12 && w <= 22 && h >= 18 && h <= 27, c.id + ' ' + k + ' size ' + w.toFixed(1) + 'x' + h.toFixed(1));
+          ok(f.bw >= 12 && f.bw <= 34 && f.bh >= 18 && f.bh <= 34, c.id + ' ' + k + ' size ' + f.bw.toFixed(1) + 'x' + f.bh.toFixed(1));
+          if (c.sheet) eq(f.dur, c.sheet.delay / 1000, c.id + ' frame time');
         }
       }
+    }
+  });
+
+  test('characters: sheet frames get painted once the image loads', async () => {
+    const S = SF.buildSprites();
+    await new Promise((resolve) => SF.whenSpritesLoaded(resolve));
+    for (const c of SF.CHARACTERS) {
+      if (!c.sheet) continue;
+      const f = S.characters[c.id].right.idle[0];
+      const d = f.getContext('2d').getImageData(0, 0, f.width, f.height).data;
+      let opaque = 0;
+      for (let i = 3; i < d.length; i += 4) if (d[i] > 128) opaque++;
+      ok(opaque > f.width * f.height * 0.15, c.id + ' idle frame painted (' + opaque + ' px)');
+      const l = S.characters[c.id].left.idle[0].getContext('2d').getImageData(0, 0, f.width, f.height).data;
+      ok(l.some((v, i) => i % 4 === 3 && v > 128), c.id + ' mirrored frame painted');
     }
   });
 

@@ -91,7 +91,8 @@ window.SF = window.SF || {};
 
   // 캐릭터 정의 { pal, ears:[A, B], head, body, bodyUp, legs?, crouch? } → 동작별 프레임 (다리를 안 주면 기본 다리)
   function charFrames(def) {
-    if (def.art) return artFrames(def); // 원본 그림 캐릭터
+    if (def.sheet) return sheetFrames(def); // 그림 파일(GIF 시트) 캐릭터
+    if (def.art) return artFrames(def); // 원본 도트 그림 캐릭터
     const f = (...parts) => SF.pixelCanvas([].concat(...parts), def.pal);
     const [A, B] = def.ears;
     const LEGS = def.legs || BASE_LEGS;
@@ -136,10 +137,62 @@ window.SF = window.SF || {};
       g.drawImage(base, -base.width / 2, -base.height);
       c.sc = def.scale;
       c.pb = PAD.bottom + (def.sink || 0); // sink: 그림 맨 아래(꼬리 등)가 발판 속으로 파묻힐 칸 수
+      c.bw = base.width * def.scale; c.bh = base.height * def.scale; // 몸 크기 (게임 칸 단위, 테스트용)
       return c;
     };
     const right = {}, left = {};
     for (const k in MOVES) { right[k] = MOVES[k].map((m) => make(m, false)); left[k] = MOVES[k].map((m) => make(m, true)); }
+    return { right, left };
+  }
+
+  // ---- 그림 파일 캐릭터 (GIF를 펼친 스프라이트 시트 PNG, dev/gif2sheet.ps1): 한 줄에 같은 크기 칸(cell)으로 그림이 n장
+  // 서 있을 때는 GIF처럼 전부 차례로 돌고, 뛸 때는 뛰는 진행도에 맞춰 넘어가고, 떨어질 때는 기울이고, 착지하면 눌린다
+  // 그림 파일은 나중에 읽히므로 칸은 먼저 만들고 다 읽히면 채운다 (그동안은 투명)
+  const SPAD = 0.12; // 기울여도 안 잘리게 둘레 여백 (칸 크기의 비율)
+  const loads = [];
+  SF.whenSpritesLoaded = (fn) => { Promise.all(loads).then(fn, fn); };
+  function sheetFrames(def) {
+    const sh = def.sheet;
+    const n = sh.frames, cell = sh.cell;
+    const pad = Math.round(cell * SPAD);
+    const W = cell + pad * 2, H = cell + pad * 2;
+    const dur = (sh.delay || 100) / 1000;
+    // [칸 번호, 가로 배율, 세로 배율, 기울기(도), 위로 뜨는 픽셀]
+    const all = Array.from({ length: n }, (_, i) => [i, 1, 1, 0, 0]);
+    const moves = Object.assign({
+      idle: all,
+      walk: all,
+      step: all.map(([i]) => [i, 0.97, 1.05, 3, cell * 0.04]),
+      fall: [[0, 1, 1.03, -8, 0], [0, 1, 1.03, 8, 0]],
+      land: [[0, 1.1, 0.86, 0, 0]],
+    }, sh.moves || {});
+    const img = new Image();
+    const jobs = [];
+    const make = ([i, sx, sy, deg, lift], flip) => {
+      const c = document.createElement('canvas');
+      c.width = W; c.height = H;
+      c.sc = def.scale;
+      c.pb = pad + (def.sink || 0);
+      c.smooth = true;
+      c.dur = dur;
+      c.bw = cell * def.scale; c.bh = cell * def.scale; // 몸 크기 (게임 칸 단위, 테스트용)
+      jobs.push(() => {
+        const g = c.getContext('2d');
+        g.imageSmoothingEnabled = true;
+        g.translate(W / 2, H - pad - lift);
+        g.rotate((deg * Math.PI) / 180);
+        g.scale((flip ? -1 : 1) * sx, sy);
+        g.drawImage(img, i * cell, 0, cell, cell, -cell / 2, -cell, cell, cell);
+      });
+      return c;
+    };
+    const right = {}, left = {};
+    for (const k in moves) { right[k] = moves[k].map((m) => make(m, false)); left[k] = moves[k].map((m) => make(m, true)); }
+    loads.push(new Promise((resolve) => {
+      img.onload = () => { for (const j of jobs) j(); resolve(); };
+      img.onerror = () => { console.warn('캐릭터 그림을 읽지 못했어요: ' + sh.src); resolve(); };
+      img.src = sh.src;
+    }));
     return { right, left };
   }
 
@@ -148,7 +201,10 @@ window.SF = window.SF || {};
   SF.drawSprite = function (ctx, im, left, top, k) {
     if (!im.sc) { ctx.drawImage(im, left, top, im.width * k, im.height * k); return; }
     const w = im.width * im.sc, h = im.height * im.sc;
+    const was = ctx.imageSmoothingEnabled;
+    if (im.smooth) ctx.imageSmoothingEnabled = true; // 매끈한 그림은 부드럽게 줄인다 (도트는 그대로)
     ctx.drawImage(im, left + ((16 - w) / 2) * k, top + (24 - h + im.pb * im.sc) * k, w * k, h * k);
+    ctx.imageSmoothingEnabled = was;
   };
 
   const SPROUT = { pal: CHAR_PAL, ears: [SPROUT_A, SPROUT_B], head: HEAD, body: BODY, bodyUp: BODY_UP };
