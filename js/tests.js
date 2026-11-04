@@ -1397,17 +1397,6 @@
     ok(msgs.includes('teacher.password'), msgs);
   });
 
-  test('characters: original art is rectangular and uses only its colors', () => {
-    for (const c of SF.CHARACTERS) {
-      if (!c.art) continue; // 그림 파일 캐릭터는 아래 테스트에서
-      const art = SF.ART[c.art];
-      ok(art, 'art for ' + c.id);
-      const w = art.rows[0].length;
-      ok(art.rows.every((r) => r.length === w), c.id + ' rows have different widths');
-      for (const r of art.rows) for (const ch of r) ok(ch === '.' || art.pal[ch], c.id + ' unknown color "' + ch + '"');
-    }
-  });
-
   test('characters: hachiware and ode with full frame sets', () => {
     eq(SF.CHARACTERS.map((c) => c.id).join(','), 'hachiware,ode');
     eq(SF.CHARACTERS.map((c) => c.name).join(','), '하치와레,오데');
@@ -1415,9 +1404,10 @@
     for (const c of SF.CHARACTERS) {
       const set = S.characters[c.id];
       ok(set, 'frames for ' + c.id);
-      // 그림 파일 캐릭터는 GIF 장수만큼, 도트 캐릭터는 정해진 장수
-      const n = c.sheet ? c.sheet.frames : 0;
-      const counts = c.sheet ? { idle: n, walk: n, step: n, fall: 2, land: 1 } : { idle: 2, walk: 4, step: 1, fall: 2, land: 1 };
+      // 그림 파일 캐릭터: 동작을 따로 적었으면 그 장수, 아니면 GIF 장수만큼 (떨어짐 2, 착지 1)
+      const n = c.sheet.frames, mv = c.sheet.moves || {};
+      const counts = { idle: n, walk: n, step: n, fall: 2, land: 1 };
+      for (const k in mv) counts[k] = mv[k].length;
       for (const k in counts) {
         eq(set.right[k].length, counts[k], c.id + ' ' + k);
         eq(set.left[k].length, counts[k], c.id + ' ' + k + ' mirrored');
@@ -1425,7 +1415,7 @@
           // 상자(16×24 게임 칸) 안에 대략 들어오는 크기: 너무 크거나 작으면 캐릭터가 이상해진다
           ok(f.sc > 0, c.id + ' ' + k + ' scale');
           ok(f.bw >= 12 && f.bw <= 34 && f.bh >= 18 && f.bh <= 34, c.id + ' ' + k + ' size ' + f.bw.toFixed(1) + 'x' + f.bh.toFixed(1));
-          if (c.sheet) eq(f.dur, c.sheet.delay / 1000, c.id + ' frame time');
+          eq(f.dur, c.sheet.delay / 1000, c.id + ' frame time');
         }
       }
     }
@@ -1435,7 +1425,6 @@
     const S = SF.buildSprites();
     await new Promise((resolve) => SF.whenSpritesLoaded(resolve));
     for (const c of SF.CHARACTERS) {
-      if (!c.sheet) continue;
       const f = S.characters[c.id].right.idle[0];
       const d = f.getContext('2d').getImageData(0, 0, f.width, f.height).data;
       let opaque = 0;

@@ -113,7 +113,6 @@ js/quiz.js        퀴즈 층, 한 판의 문제 순서, 답하기
 js/score.js       점수 계산
 js/student.js     학생 정보 검사·기억, 선생님 비밀번호, 한 판의 기록
 js/characters.js  캐릭터 2명(하치와레·오데)의 이름·크기
-js/characters-art.js  오데 도트 그림 데이터 (원본을 도트로 옮긴 것, 교육용)
 assets/            캐릭터 그림 파일 (GIF를 펼친 스프라이트 시트, dev/gif2sheet.ps1로 만듦)
 js/certificate.js 완주 증명서 그림
 js/ui.js          처음 화면·일시정지·그만두기·선생님 모드·증명서 상자

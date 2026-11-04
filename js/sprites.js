@@ -92,7 +92,6 @@ window.SF = window.SF || {};
   // 캐릭터 정의 { pal, ears:[A, B], head, body, bodyUp, legs?, crouch? } → 동작별 프레임 (다리를 안 주면 기본 다리)
   function charFrames(def) {
     if (def.sheet) return sheetFrames(def); // 그림 파일(GIF 시트) 캐릭터
-    if (def.art) return artFrames(def); // 원본 도트 그림 캐릭터
     const f = (...parts) => SF.pixelCanvas([].concat(...parts), def.pal);
     const [A, B] = def.ears;
     const LEGS = def.legs || BASE_LEGS;
@@ -111,40 +110,6 @@ window.SF = window.SF || {};
     for (const k in right) left[k] = right[k].map(mirror);
     return { right, left };
   }
-  // ---- 원본 그림 캐릭터: 한 장(SF.ART)의 도트를 살짝 기울이고 눌러서 걷기·오르기·떨어지기·착지를 만든다
-  // 프레임 캔버스에는 sc(도트 한 칸의 게임 안 크기)와 pb(아래 여백 칸 수)가 붙는다. SF.drawSprite가 이걸 읽는다
-  const PAD = { x: 8, top: 8, bottom: 3 }; // 기울여도 안 잘리게 둘레 여백 (도트 칸)
-  // 동작마다 [가로 배율, 세로 배율, 기울기(도), 위로 뜨는 칸]. 발 가운데 아래가 기준
-  const MOVES = {
-    idle: [[1, 1, 0, 0], [1.03, 0.97, 0, 0]],
-    walk: [[1, 1, -4, 0], [1, 1, 0, 1.5], [1, 1, 4, 0], [1, 1, 0, 1.5]],
-    step: [[0.97, 1.05, 3, 1]],
-    fall: [[1, 1.03, -7, 0], [1, 1.03, 7, 0]],
-    land: [[1.1, 0.86, 0, 0]],
-  };
-  function artFrames(def) {
-    const art = SF.ART[def.art];
-    const base = SF.pixelCanvas(art.rows, art.pal);
-    const W = base.width + PAD.x * 2, H = base.height + PAD.top + PAD.bottom;
-    const make = ([sx, sy, deg, lift], flip) => {
-      const c = document.createElement('canvas');
-      c.width = W; c.height = H;
-      const g = c.getContext('2d');
-      g.imageSmoothingEnabled = false;
-      g.translate(W / 2, H - PAD.bottom - lift);
-      g.rotate((deg * Math.PI) / 180);
-      g.scale((flip ? -1 : 1) * sx, sy);
-      g.drawImage(base, -base.width / 2, -base.height);
-      c.sc = def.scale;
-      c.pb = PAD.bottom + (def.sink || 0); // sink: 그림 맨 아래(꼬리 등)가 발판 속으로 파묻힐 칸 수
-      c.bw = base.width * def.scale; c.bh = base.height * def.scale; // 몸 크기 (게임 칸 단위, 테스트용)
-      return c;
-    };
-    const right = {}, left = {};
-    for (const k in MOVES) { right[k] = MOVES[k].map((m) => make(m, false)); left[k] = MOVES[k].map((m) => make(m, true)); }
-    return { right, left };
-  }
-
   // ---- 그림 파일 캐릭터 (GIF를 펼친 스프라이트 시트 PNG, dev/gif2sheet.ps1): 한 줄에 같은 크기 칸(cell)으로 그림이 n장
   // 서 있을 때는 GIF처럼 전부 차례로 돌고, 뛸 때는 뛰는 진행도에 맞춰 넘어가고, 떨어질 때는 기울이고, 착지하면 눌린다
   // 그림 파일은 나중에 읽히므로 칸은 먼저 만들고 다 읽히면 채운다 (그동안은 투명)
