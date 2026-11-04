@@ -21,8 +21,10 @@ window.SF = window.SF || {};
 
   SF.CHARACTERS = [
     // 춤추는 GIF 8장 중 첫 장만 쓴다 (전부 돌리면 깜빡여서 정신없다)
-    { id: 'hachiware', name: '하치와레', scale: 0.2, sheet: { src: 'assets/hachiware.png', frames: 8, cell: 160, delay: 350, moves: STILL(0) } },
+    { id: 'hachiware', name: '하치와레', scale: 0.15, sheet: { src: 'assets/hachiware.png', frames: 8, cell: 160, delay: 350, moves: STILL(0) } },
     // 쪼그려 앉은 그림 1장
     { id: 'ode', name: '오데', scale: 0.125, sheet: { src: 'assets/ode.png', frames: 1, cell: 200, delay: 350, moves: STILL(0) } },
+    // 메이플스토리 모험가 그림 1장 (왼쪽을 보는 그림이라 flip으로 오른쪽을 보게)
+    { id: 'adventurer', name: '모험가', scale: 0.15, sheet: { src: 'assets/adventurer.png', frames: 1, cell: 160, delay: 350, moves: STILL(0), faces: 'left' } },
   ];
 })(window.SF);

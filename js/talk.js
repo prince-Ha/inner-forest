@@ -66,6 +66,18 @@ window.SF = window.SF || {};
       finish: ['오데 해냈다! 꼭대기다!'],
       timeup: ['오데 아직 더 오르고 싶다!'],
     },
+    adventurer: {
+      start: ['모험 시작!', '퀘스트 수락. 목표는 600층!', '오늘 정상 찍고 간다.'],
+      fall: ['윽, 체력 -10', '리스폰. 다시 간다.', '이 정도 추락은 경험치지.'],
+      hit: ['크윽, 데미지!', '방심했다…', '패턴 외웠다. 다음엔 안 맞아.'],
+      gust: ['바람 디버프!', '버텨, 버텨!'],
+      gustIntro: ['돌풍 구간 진입. 멈추면 밀린다!'],
+      combo10: ['콤보 10! 몸이 풀렸다.'],
+      combo30: ['콤보 30! 레벨 업 느낌!'],
+      combo50: ['콤보 50! 전설 등급 달성!'],
+      finish: ['퀘스트 완료! 600층 클리어!'],
+      timeup: ['시간 초과… 다음 판엔 꼭 클리어.'],
+    },
   };
 
   let lines = SF.TALK_DEFAULTS;
@@ -84,10 +96,12 @@ window.SF = window.SF || {};
     const nc = {};
     for (const id of Object.keys(byChar || SF.TALK_CHAR_DEFAULTS)) {
       nc[id] = {};
+      // 시트에 그 캐릭터 문구가 하나라도 있으면 시트 내용만(없는 상황은 공통 문구),
+      // 하나도 없으면(시트가 없거나 새 캐릭터라 아직 setup을 안 돌린 시트) 기본 말투
+      const fromSheet = !!byChar && !!byChar[id] && Object.keys(byChar[id]).some((k) => clean(byChar[id][k]).length);
       for (const k in SF.TALK_DEFAULTS) {
         const v = clean(byChar && byChar[id] && byChar[id][k]);
-        // 시트에서 캐릭터 문구를 받았으면 그 내용만(없는 상황은 공통 문구), 못 받았으면 기본 말투
-        const fallback = byChar ? [] : clean(SF.TALK_CHAR_DEFAULTS[id] && SF.TALK_CHAR_DEFAULTS[id][k]);
+        const fallback = fromSheet ? [] : clean(SF.TALK_CHAR_DEFAULTS[id] && SF.TALK_CHAR_DEFAULTS[id][k]);
         nc[id][k] = v.length ? v : fallback;
       }
     }

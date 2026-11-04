@@ -256,7 +256,8 @@ html, body {
   touch-action: manipulation;
 }
 .panel .pick-label { margin: 10px 0 6px; font-weight: 700; text-align: left; }
-.char-pick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.char-pick { display: flex; justify-content: center; gap: 10px; } /* 몇 명이든 가운데에 같은 간격으로 */
+.char-opt { flex: 0 0 auto; width: 84px; }
 .char-opt {
   font: inherit;
   padding: 6px 2px 4px;

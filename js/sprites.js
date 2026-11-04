@@ -152,7 +152,8 @@ window.SF = window.SF || {};
       return c;
     };
     const right = {}, left = {};
-    for (const k in moves) { right[k] = moves[k].map((m) => make(m, false)); left[k] = moves[k].map((m) => make(m, true)); }
+    const srcLeft = sh.faces === 'left'; // 원본이 왼쪽을 보는 그림이면 뒤집어서 오른쪽 모습으로
+    for (const k in moves) { right[k] = moves[k].map((m) => make(m, srcLeft)); left[k] = moves[k].map((m) => make(m, !srcLeft)); }
     loads.push(new Promise((resolve) => {
       img.onload = () => { for (const j of jobs) j(); resolve(); };
       img.onerror = () => { console.warn('캐릭터 그림을 읽지 못했어요: ' + sh.src); resolve(); };

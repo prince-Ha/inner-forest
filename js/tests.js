@@ -1398,8 +1398,8 @@
   });
 
   test('characters: hachiware and ode with full frame sets', () => {
-    eq(SF.CHARACTERS.map((c) => c.id).join(','), 'hachiware,ode');
-    eq(SF.CHARACTERS.map((c) => c.name).join(','), '하치와레,오데');
+    eq(SF.CHARACTERS.map((c) => c.id).join(','), 'hachiware,ode,adventurer');
+    eq(SF.CHARACTERS.map((c) => c.name).join(','), '하치와레,오데,모험가');
     const S = SF.buildSprites();
     for (const c of SF.CHARACTERS) {
       const set = S.characters[c.id];
@@ -1791,7 +1791,7 @@
   // ---------------------------------------------------------------- 캐릭터별 말투 (하치와레·오데)
   test('talk: sheet character seed lines are the built-in tones', () => {
     const seed = SFS.parseCharLines([SFS.HEADERS['말풍선']].concat(SFS.SEED_LINES, SFS.SEED_CHAR_LINES));
-    eq(Object.keys(seed).sort().join(','), '오데,하치와레');
+    eq(Object.keys(seed).sort().join(','), '모험가,오데,하치와레');
     for (const c of SF.CHARACTERS) {
       const want = SF.TALK_CHAR_DEFAULTS[c.id];
       const got = seed[c.name];
@@ -1811,6 +1811,8 @@
       eq(SF.createTalk(SF.makeRng(1), 'ode').line('fall') === null, false, 'falls back to the built-in common lines');
       ok(SF.TALK_DEFAULTS.fall.includes(SF.createTalk(SF.makeRng(1), 'ode').line('fall')), 'common fall line');
       eq(SF.createTalk(SF.makeRng(1), 'ode').fact(), '공통 상식');
+      // 시트에 아직 말투가 없는 캐릭터(새로 생긴 모험가)는 기본 말투
+      ok(SF.TALK_CHAR_DEFAULTS.adventurer.start.includes(SF.createTalk(SF.makeRng(1), 'adventurer').line('start')), 'new character keeps its built-in tone');
     } finally {
       SF.applyTalkLines(null);
     }
@@ -1828,6 +1830,14 @@
     setup();
     eq(talk.data[0][3], '캐릭터', 'header gets the new column');
     eq(talk.data.length, 2 + SFS.SEED_CHAR_LINES.length, 'tones appended once');
+    // 새 캐릭터가 생기면 그 캐릭터 말투만 덧붙인다 (있던 말투는 건드리지 않음)
+    const before = talk.data.length;
+    const kept = talk.data.filter((r) => r[3] !== '모험가');
+    talk.data.length = 0; talk.data.push(...kept); // 가짜 시트는 같은 배열을 써야 한다
+    const removed = before - talk.data.length;
+    setup();
+    eq(talk.data.length, before, 'missing character tones re-added');
+    eq(talk.data.filter((r) => r[3] === '모험가').length, removed, 'only the missing ones');
     setup();
     eq(talk.data.length, 2 + SFS.SEED_CHAR_LINES.length, 'running setup again adds nothing');
     const r = sGet('bootstrap');
