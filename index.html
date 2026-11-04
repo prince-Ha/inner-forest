@@ -1,101 +1,272 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Firebase 연결 테스트</title>
-<style>
-  body { font-family: system-ui, sans-serif; background:#f4f1e8; color:#222;
-         display:flex; flex-direction:column; align-items:center; padding:40px 16px; }
-  h1 { font-size:20px; margin-bottom:24px; }
-  #status { font-size:32px; font-weight:700; padding:16px 32px; border-radius:12px;
-            background:#ddd; margin-bottom:24px; }
-  #status.ok { background:#c8f0c8; color:#1b6b1b; }
-  #status.fail { background:#f7c6c6; color:#8a1c1c; }
-  #count { font-size:48px; font-weight:700; }
-  .label { font-size:14px; color:#666; margin-top:8px; }
-  #msg { margin-top:24px; font-size:14px; color:#555; max-width:420px; text-align:center; line-height:1.6; }
-  #where { margin-top:32px; font-size:12px; color:#999; }
-</style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1f140c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>과학 인내의 숲</title>
+<link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <h1>🌲 인내의 숲 · 연결 테스트</h1>
-  <div id="status">연결 확인 중...</div>
-  <div id="count">-</div>
-  <div class="label">지금 접속 중인 사람 수</div>
-  <div id="msg"></div>
-  <div id="where"></div>
-
-<!-- 1) 일반 스크립트: Firebase 코드를 못 불러와도 반드시 실행되는 안전장치 -->
 <script>
-  window.__connected = false;
-  document.getElementById("where").textContent =
-    "열린 방식: " + (location.protocol === "file:" ? "파일 직접 열기 (file://)" : location.protocol + "//" + location.host);
-
-  setTimeout(function () {
-    if (window.__connected) return;
-    var s = document.getElementById("status");
-    s.textContent = "연결 안 됨 ❌";
-    s.className = "fail";
-    var m = document.getElementById("msg");
-    if (location.protocol === "file:") {
-      m.textContent = "파일을 직접 열면 브라우저가 Firebase 코드를 막을 수 있어요. GitHub Pages에 올려서 주소로 열어 보세요. 주소로 열어도 안 되면 학교망이 막은 것일 수 있어요.";
-    } else {
-      m.textContent = "Firebase 서버에 닿지 못했어요. 학교망이 firebase 관련 주소를 막고 있을 수 있어요. 이 화면을 캡처해서 알려주세요.";
-    }
-  }, 8000);
-
-  window.addEventListener("error", function (e) {
-    var m = document.getElementById("msg");
-    m.textContent = "오류: " + (e.message || "코드를 불러오지 못했어요");
+  // 스크립트 오류(예: config.js의 쉼표·괄호 실수)가 나면 검은 화면 대신 안내를 띄운다
+  window.addEventListener('error', function (e) {
+    var box = document.getElementById('notice');
+    if (!box) return;
+    box.querySelector('h2').textContent = '게임을 시작할 수 없어요';
+    var file = e.filename ? e.filename.split('/').pop() + ' ' + (e.lineno || '') + '번째 줄: ' : '';
+    box.querySelector('ul').innerHTML = '';
+    var li = document.createElement('li');
+    li.textContent = file + e.message + ' (config.js를 고쳤다면 쉼표·괄호·따옴표를 확인해 주세요)';
+    box.querySelector('ul').appendChild(li);
+    box.querySelector('button').hidden = true;
+    box.hidden = false;
   });
 </script>
+<div id="app" class="is-home">
+  <div id="stage">
+    <canvas id="game" aria-label="게임 화면"></canvas>
+    <div id="hud">
+      <div class="hud-left">
+        <button id="mute" class="hud-btn" type="button" aria-pressed="false" aria-label="소리 끄기">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path class="wave" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path class="slash" d="M16 9l6 6M22 9l-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <button id="pause-btn" class="hud-btn" type="button" aria-label="일시정지">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/></svg>
+        </button>
+        <button id="home-btn" class="hud-btn" type="button" aria-label="처음 화면으로">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 4l8 7.5V20h-5.5v-5h-5v5H4z" fill="currentColor"/></svg>
+        </button>
+        <span id="test-badge" class="test-badge" hidden>테스트</span>
+      </div>
+      <div class="hud-center">
+        <div id="floor-box"><span id="floor">1</span><span class="unit">층</span></div>
+        <div id="combo" data-tier="0"></div>
+      </div>
+      <div class="hud-right">
+        <div id="timer">00:00.00</div>
+        <div id="best">최고 1층</div>
+      </div>
+    </div>
 
-<!-- 2) Firebase 연결 -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getDatabase, ref, set, push, onValue, onDisconnect }
-    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+    <!-- 처음(입장) 화면 -->
+    <div id="home" class="overlay home">
+      <div class="panel home-panel">
+        <h1 class="home-title">과학 인내의 숲</h1>
+        <p class="home-sub">거대한 나무 속 600층을 끝까지 올라 보세요!</p>
+        <label class="field"><span>이름</span><input id="in-name" type="text" maxlength="12" autocomplete="off" enterkeyhint="done" placeholder="이름을 적어 주세요"></label>
+        <label class="field"><span id="grade-label">3학년</span><select id="in-class"></select></label>
+        <label class="field"><span>방 코드</span><input id="in-room" type="text" maxlength="12" autocomplete="off" autocapitalize="characters" placeholder="같이 할 때만 (예: 3-2)"></label>
+        <label class="field"><span>닉네임</span><input id="in-nick" type="text" maxlength="10" autocomplete="off" placeholder="비우면 이름으로"></label>
+        <p class="pick-label">캐릭터</p>
+        <div id="char-pick" class="char-pick" role="radiogroup" aria-label="캐릭터 고르기"></div>
+        <p id="home-error" class="home-error" role="alert" hidden></p>
+        <p id="loading" class="loading" hidden>숲을 만드는 중…</p>
+        <button id="home-start" type="button" class="big-btn">시작하기</button>
+        <button id="board-open" type="button" class="menu-btn">랭킹 · 한마디</button>
+        <p id="test-note" class="test-note" hidden>테스트 모드 — 기록이 남지 않아요</p>
+      </div>
+      <button id="teacher-btn" class="teacher-btn" type="button">선생님</button>
+    </div>
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyAABoygMrdlEmv9s2hAxVC78guKihhFLc4",
-    authDomain: "endurance-1210a.firebaseapp.com",
-    databaseURL: "https://endurance-1210a-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "endurance-1210a",
-    storageBucket: "endurance-1210a.firebasestorage.app",
-    messagingSenderId: "945432874903",
-    appId: "1:945432874903:web:b787886eb1c911ac78bed2"
-  };
+    <!-- 준비 화면 (◀▶ 안내) -->
+    <div id="ready" class="overlay hidden">
+      <div class="panel">
+        <p id="ready-who" class="ready-who"></p>
+        <p>◀ ▶ 버튼(또는 ← → 키)을 <strong>누를 때마다</strong> 한 칸씩 올라가요!</p>
+        <p class="hint">다음 계단이 있는 쪽을 누르세요.<br>잘못 누르면 허공으로 떨어져요. 빠르게 연속으로 오르면 콤보!</p>
+        <p class="hint rules">20층마다 과학 퀴즈 · 61층부터 장애물 · <span id="hint-time">등반 시간 15분</span></p>
+        <div id="practice" class="practice" hidden>
+          <p class="practice-label">구간 연습 <span>(테스트 모드, 기록 안 남음)</span></p>
+          <div id="practice-btns" class="practice-btns"></div>
+        </div>
+      </div>
+    </div>
 
-  const statusEl = document.getElementById("status");
-  const countEl = document.getElementById("count");
-  const msgEl = document.getElementById("msg");
+    <div id="quiz" class="overlay hidden">
+      <div class="panel quiz-panel" role="dialog" aria-labelledby="quiz-q">
+        <p id="quiz-head" class="quiz-head">과학 퀴즈</p>
+        <p id="quiz-q" class="quiz-q"></p>
+        <div id="quiz-choices" class="quiz-choices"></div>
+        <div id="quiz-result" class="quiz-result" hidden>
+          <p id="quiz-verdict" class="quiz-verdict"></p>
+          <p id="quiz-explain" class="quiz-explain"></p>
+          <button id="quiz-continue" type="button">계속 오르기</button>
+        </div>
+        <button id="quiz-skip" type="button" class="menu-btn small" hidden>건너뛰기 (테스트)</button>
+      </div>
+    </div>
 
-  try {
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+    <!-- 일시정지 -->
+    <div id="pause" class="overlay hidden">
+      <div class="panel">
+        <h1>일시정지</h1>
+        <p class="hint">일시정지 중에는 등반 시간이 멈춰요.</p>
+        <div class="menu">
+          <button id="resume-btn" type="button" class="big-btn">계속하기</button>
+          <button id="pause-home" type="button" class="menu-btn">처음 화면으로</button>
+        </div>
+        <div id="test-tools" class="test-tools" hidden>
+          <p class="practice-label">테스트 도구</p>
+          <div class="tool-row">
+            <input id="tool-floor" type="number" min="1" max="600" value="100" inputmode="numeric">
+            <button id="tool-go" type="button" class="menu-btn small">층으로 이동</button>
+          </div>
+          <div class="tool-row">
+            <button id="tool-bot" type="button" class="menu-btn small">봇 켜기</button>
+            <button id="tool-minute" type="button" class="menu-btn small">1분 남기기</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
-    onValue(ref(db, ".info/connected"), (snap) => {
-      if (snap.val() === true) {
-        window.__connected = true;
-        statusEl.textContent = "연결됨 ✅";
-        statusEl.className = "ok";
-        msgEl.textContent = "다른 기기나 탭에서도 이 페이지를 열면 숫자가 올라가요.";
+    <!-- 그만하기 확인 -->
+    <div id="confirm" class="overlay hidden">
+      <div class="panel">
+        <p id="confirm-text" class="confirm-text"></p>
+        <div class="menu">
+          <button id="confirm-yes" type="button" class="big-btn">그만하기</button>
+          <button id="confirm-no" type="button" class="menu-btn">계속하기</button>
+        </div>
+      </div>
+    </div>
 
-        const myRef = push(ref(db, "testPresence"));
-        onDisconnect(myRef).remove();
-        set(myRef, { joinedAt: Date.now() });
-      }
-    });
+    <div id="finish" class="overlay hidden">
+      <div class="panel result-panel">
+        <h1 id="finish-title">완주!</h1>
+        <table id="score-table" class="score-table"></table>
+        <p id="result-meta" class="result-meta"></p>
+        <p id="save-status" class="save-status" role="status" hidden></p>
+        <!-- 완주 + 기록 저장되면: 완주 기념 한마디 -->
+        <div id="msg-box" class="msg-box" hidden>
+          <p class="msg-label">완주 기념 한마디 <span>(30자까지, 랭킹 보드에 올라가요)</span></p>
+          <div class="msg-row">
+            <input id="msg-input" type="text" maxlength="40" autocomplete="off" enterkeyhint="send" placeholder="친구들에게 한마디!">
+            <button id="msg-send" type="button" class="menu-btn small">남기기</button>
+          </div>
+          <p id="msg-status" class="msg-status" role="status" hidden></p>
+        </div>
+        <div class="menu">
+          <button id="cert-btn" type="button" class="big-btn" hidden>증명서 보기</button>
+          <button id="board-from-result" type="button" class="menu-btn">랭킹 보기</button>
+          <button id="restart" type="button" class="menu-btn">다시 하기</button>
+          <button id="result-home" type="button" class="menu-btn">처음 화면</button>
+        </div>
+      </div>
+    </div>
 
-    onValue(ref(db, "testPresence"), (snap) => {
-      countEl.textContent = snap.size;
-    });
-  } catch (e) {
-    statusEl.textContent = "오류 ❌";
-    statusEl.className = "fail";
-    msgEl.textContent = String(e);
-  }
-</script>
+    <!-- 완주 증명서 -->
+    <div id="cert" class="overlay hidden">
+      <div class="panel cert-panel">
+        <img id="cert-img" class="cert-img" alt="완주 증명서">
+        <p id="cert-hint" class="hint">저장이 안 되면 증명서를 길게 눌러 저장하세요.</p>
+        <div class="menu">
+          <a id="cert-save" class="big-btn" href="#" download="과학인내의숲_완주증명서.png">사진으로 저장</a>
+          <button id="cert-close" type="button" class="menu-btn">닫기</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 랭킹·한마디 보드 -->
+    <div id="board" class="overlay hidden">
+      <div class="panel board-panel">
+        <h2 class="panel-h2">랭킹 · 한마디</h2>
+        <div id="board-tabs" class="tabs" role="tablist">
+          <button type="button" role="tab" data-tab="class">우리 반</button>
+          <button type="button" role="tab" data-tab="school">전교</button>
+          <button type="button" role="tab" data-tab="messages">한마디</button>
+        </div>
+        <p id="board-note" class="hint board-note"></p>
+        <ol id="board-list" class="board-list"></ol>
+        <div class="menu">
+          <button id="board-close" type="button" class="big-btn">닫기</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 선생님 모드 -->
+    <div id="teacher-login" class="overlay hidden">
+      <div class="panel">
+        <h2 class="panel-h2">선생님 모드</h2>
+        <input id="teacher-pw" class="pw" type="password" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="비밀번호">
+        <p id="teacher-error" class="home-error" hidden>비밀번호가 달라요.</p>
+        <div class="menu">
+          <button id="teacher-ok" type="button" class="big-btn">확인</button>
+          <button id="teacher-cancel" type="button" class="menu-btn">닫기</button>
+        </div>
+      </div>
+    </div>
+    <div id="teacher" class="overlay hidden">
+      <div class="panel teacher-panel">
+        <h2 class="panel-h2">선생님 모드</h2>
+        <section>
+          <h3>테스트 모드</h3>
+          <p class="hint">켜면 구간 연습·층 이동·봇·퀴즈 건너뛰기를 쓸 수 있어요. 테스트로 한 판은 기록에 남지 않아요.</p>
+          <button id="test-toggle" type="button" class="menu-btn">테스트 모드 켜기</button>
+        </section>
+        <section>
+          <h3>설정 요약</h3>
+          <dl id="settings-summary" class="summary"></dl>
+        </section>
+        <section>
+          <h3>구글 시트</h3>
+          <p id="sheet-status" class="hint">연결 확인 중…</p>
+          <div id="sheet-tools" class="tool-row" hidden>
+            <button id="t-finishers" type="button" class="menu-btn small">완주자 목록</button>
+            <button id="t-messages" type="button" class="menu-btn small">한마디 숨기기</button>
+          </div>
+          <p id="t-note" class="t-note" role="status" hidden></p>
+          <div id="t-list" class="t-list"></div>
+        </section>
+        <div class="menu">
+          <button id="teacher-close" type="button" class="big-btn">닫기</button>
+          <button id="teacher-exit" type="button" class="menu-btn">선생님 모드 나가기</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="notice" class="overlay" hidden>
+      <div class="panel notice-panel">
+        <h2>설정을 확인해 주세요</h2>
+        <ul></ul>
+        <button type="button">닫기</button>
+      </div>
+    </div>
+  </div>
+  <div id="controls">
+    <button id="btn-left" class="pad" type="button" aria-label="왼쪽으로">◀</button>
+    <button id="btn-right" class="pad" type="button" aria-label="오른쪽으로">▶</button>
+  </div>
+</div>
+<script src="config.js"></script>
+<script src="js/util.js"></script>
+<script src="js/rng.js"></script>
+<script src="js/world.js"></script>
+<script src="js/physics.js"></script>
+<script src="js/stepper.js"></script>
+<script src="js/combo.js"></script>
+<script src="js/sound.js"></script>
+<script src="js/talk.js"></script>
+<script src="js/questions.js"></script>
+<script src="js/quiz.js"></script>
+<script src="js/score.js"></script>
+<script src="js/student.js"></script>
+<script src="js/sheet.js"></script>
+<script src="js/hazards.js"></script>
+<script src="js/level.js"></script>
+<script src="js/bot.js"></script>
+<script src="js/input.js"></script>
+<script src="js/camera.js"></script>
+<script src="js/characters.js"></script>
+<script src="js/sprites.js"></script>
+<script src="js/certificate.js"></script>
+<script src="js/render.js"></script>
+<script src="js/game.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/sheet-ui.js"></script>
+<script src="js/debug.js"></script>
+<script type="module" src="js/room.js"></script>
 </body>
 </html>
