@@ -35,13 +35,15 @@ window.SF = window.SF || {};
       b.className = 'char-opt';
       b.setAttribute('role', 'radio');
       const cnv = document.createElement('canvas');
-      cnv.width = 48; // 16×24 상자의 3배 (그림은 그 안에 맞춰 그려진다)
-      cnv.height = 72;
+      cnv.width = 64;
+      cnv.height = 84;
+      // 캐릭터가 칸 안에 다 들어오게: 몸 크기(bw×bh, 게임 칸 단위)에 맞춰 배율을 정하고 발을 바닥 가까이에
       const paint = () => {
         const cg = cnv.getContext('2d');
         cg.clearRect(0, 0, cnv.width, cnv.height);
-        cg.imageSmoothingEnabled = false;
-        SF.drawSprite(cg, game.sprites.characters[c.id].right.idle[0], 0, 0, 3);
+        const f = game.sprites.characters[c.id].right.idle[0];
+        const k = Math.min((cnv.width - 4) / (f.bw || 16), (cnv.height - 6) / (f.bh || 24));
+        SF.drawSprite(cg, f, (cnv.width - 16 * k) / 2, cnv.height - 3 - 24 * k, k); // (16×24 상자의 왼쪽 위, 배율)
       };
       paint();
       if (SF.whenSpritesLoaded) SF.whenSpritesLoaded(paint); // 그림 파일이 늦게 읽히면 다시 그린다

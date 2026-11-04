@@ -17,7 +17,7 @@ window.SF = window.SF || {};
       d.name,
       d.grade + '학년 ' + d.classNo + '반',
       '등반 ' + mmss(d.climbTime) + ' · 퀴즈 ' + d.correct + '/' + d.total + ' · 점수 ' + d.score.toLocaleString('ko-KR'),
-      '위 학생은 거대한 나무 속 ' + d.floors + '층을 끝까지 올라 과학 인내의 숲을 완주했음을 증명합니다.',
+      '위 학생은 「과학 인내의 숲」 ' + d.floors + '층을 완주하였음을 인증합니다.',
       date,
     ];
     if (d.test) lines.push('테스트 기록 (기록 안 남음)');

@@ -266,7 +266,7 @@ html, body {
   color: var(--ink);
   cursor: pointer;
 }
-.char-opt canvas { display: block; width: 48px; height: 72px; margin: 0 auto 2px; image-rendering: pixelated; }
+.char-opt canvas { display: block; width: 64px; height: 84px; margin: 0 auto 2px; }
 .char-opt span { font-size: 12px; font-weight: 700; }
 .char-opt[aria-checked="true"] { border-color: var(--accent); background: var(--pad-hi); box-shadow: 0 0 0 2px var(--accent); }
 .panel .home-error { color: var(--bad); font-weight: 700; font-size: 14px; margin: 8px 0 0; }
