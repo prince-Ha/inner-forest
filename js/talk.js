@@ -94,7 +94,7 @@ window.SF = window.SF || {};
     }
     lines = next;
     const nc = {};
-    for (const id of Object.keys(byChar || SF.TALK_CHAR_DEFAULTS)) {
+    for (const id of new Set(Object.keys(SF.TALK_CHAR_DEFAULTS).concat(Object.keys(byChar || {})))) {
       nc[id] = {};
       // 시트에 그 캐릭터 문구가 하나라도 있으면 시트 내용만(없는 상황은 공통 문구),
       // 하나도 없으면(시트가 없거나 새 캐릭터라 아직 setup을 안 돌린 시트) 기본 말투
