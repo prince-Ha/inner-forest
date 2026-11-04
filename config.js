@@ -137,8 +137,15 @@ window.GAME_CONFIG = {
   // 과학 퀴즈: firstFloor층부터 every층마다 count문제 (10·30·…·590층). 퀴즈 층과 그 위 층에는 장애물을 두지 않아요
   quiz: { firstFloor: 10, every: 20, count: 30 },
 
-  // 등반 시간 제한(초). 퀴즈 푸는 시간은 빼고 잽니다. 900 = 15분, 0 = 제한 없음
-  timeLimitSec: 900,
+  // 등반 시간 제한(초). 퀴즈 푸는 시간은 빼고 잽니다. 1800 = 30분, 0 = 제한 없음
+  // (바꾸면 apps-script/Code.js의 RULES.timeLimitSec도 같게 고치고 다시 붙여 넣어야 기록이 저장돼요)
+  timeLimitSec: 1800,
+
+  // 배경음: 차례로 반복 재생. 처음에는 꺼져 있고 왼쪽 위 스피커를 누르면 효과음과 함께 켜져요. 비우면 배경음 없음
+  bgm: {
+    files: ['assets/bgm/1-azure-light.mp3', 'assets/bgm/2-magatia.mp3', 'assets/bgm/3-sleepywood.mp3', 'assets/bgm/4-my-prince-my-kingdom.mp3'],
+    volume: 0.4, // 0~1
+  },
 
   // 점수 = 최고 층 × perFloor + 완주 finishBonus + (완주 때만) 남은 등반 초 × perSecondLeft
   //        + 퀴즈 정답 × perCorrect + 최고 콤보 × perCombo

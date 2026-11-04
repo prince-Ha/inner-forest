@@ -21,8 +21,9 @@ window.SF = window.SF || {};
     let ctx = null;
     let master = null;
 
-    const s = { muted: false };
-    try { s.muted = !!storage && storage.getItem(KEY) === '1'; } catch (_) { s.muted = false; }
+    // 처음에는 꺼져 있다 (스피커를 눌러 켜면 그 기기에 기억)
+    const s = { muted: true };
+    try { s.muted = !storage || storage.getItem(KEY) !== '0'; } catch (_) { s.muted = true; }
 
     s.setMuted = function (m) {
       s.muted = !!m;

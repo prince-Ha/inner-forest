@@ -16,7 +16,7 @@ var SFS = (function () {
 
   var RULES = {
     totalFloors: 600,
-    timeLimitSec: 900,
+    timeLimitSec: 1800,
     quiz: { firstFloor: 10, every: 20, count: 30 },
     score: { perFloor: 10, finishBonus: 3000, perSecondLeft: 5, perCorrect: 200, perCombo: 10 },
     minFinishSec: 60, // 600층을 이보다 빨리 완주한 기록은 받지 않아요 (가장 빠른 봇도 70초 넘게 걸림)

@@ -25,6 +25,7 @@ window.SF = window.SF || {};
   const camera = SF.createCamera(cfg);
   const tracker = SF.createDirTracker(); // 버튼 눌림 표시용
   const sound = SF.createSound();
+  const bgm = SF.createBgm(cfg.bgm); // 배경음: 스피커 버튼과 같이 켜지고 꺼진다
   const STEP = cfg.physics.fixedStep;
   const freshAnim = () => ({ landT: 1, airT: 0, bumpT: 1, flashT: 1, hitT: 9, steps: 0 });
 
@@ -41,7 +42,7 @@ window.SF = window.SF || {};
     quiz: null, quizQ: null, quizFloor: 0, quizAnswered: false,
     bot: false, debug: { hitbox: false },
     popups: [], particles: [], bubble: null, shakeTime: 0,
-    anim: freshAnim(), sound,
+    anim: freshAnim(), sound, bgm,
     // 장애물: 시계(초), 금 간 발판 상태, 맞은 뒤 무적 시간, 튕겨 날아가는 중인지, 원숭이별 마지막 던짐 번호
     clock: 0, crumbles: null, grace: 0, knocked: false, throwK: new Map(),
     // 돌풍: 바람 속에서 서 있은 시간, 마지막으로 소리 낸 바람 단계, 돌풍 구간 첫 안내를 했는지
@@ -663,6 +664,7 @@ window.SF = window.SF || {};
     // 버튼을 누를 때마다 한 칸 (누르고 있어도 반복하지 않는다). 퀴즈·결과 화면에서는 무시
     SF.bindInput(tracker, { controls: els.controls, leftBtn: els.left, rightBtn: els.right }, (dir) => {
       sound.unlock();
+      if (!sound.muted) bgm.setOn(true); // 지난번에 켜 둔 기기: 첫 터치 때부터 배경음 (브라우저는 터치 전엔 못 튼다)
       if (!INPUT_OK(game.state)) return;
       if (game.state === 'ready') start();
       if (!game.bot) SF.stepperPress(game.stepper, dir, cfg);
@@ -676,7 +678,7 @@ window.SF = window.SF || {};
       else if (game.quizAnswered && (k === 'enter' || k === ' ')) { e.preventDefault(); game.continueAfterQuiz(); }
     });
     els.quizContinue.addEventListener('click', () => game.continueAfterQuiz());
-    els.mute.addEventListener('click', () => { sound.unlock(); sound.setMuted(!sound.muted); syncMute(); });
+    els.mute.addEventListener('click', () => { sound.unlock(); sound.setMuted(!sound.muted); bgm.setOn(!sound.muted); syncMute(); });
     syncMute();
     els.restart.addEventListener('click', () => game.reset());
     requestAnimationFrame((t) => { lastT = t; requestAnimationFrame(frame); });

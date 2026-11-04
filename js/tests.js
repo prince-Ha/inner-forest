@@ -503,8 +503,8 @@
   // ---------------------------------------------------------------- 점수와 시간
   test('score: finished example', () => {
     const s = SF.computeScore({ bestFloor: 600, finished: true, climbTime: 600, correct: 24, maxCombo: 80 }, CFG);
-    eq(s.floor, 6000); eq(s.finish, 3000); eq(s.speed, 1500); eq(s.quiz, 4800); eq(s.combo, 800);
-    eq(s.total, 16100);
+    eq(s.floor, 6000); eq(s.finish, 3000); eq(s.speed, 6000); eq(s.quiz, 4800); eq(s.combo, 800); // 30분 제한: 600초에 완주 → 1200초 남음 × 5
+    eq(s.total, 20600);
   });
 
   test('score: unfinished example', () => {
@@ -966,6 +966,54 @@
     ok(s.muted, 'mute still toggles');
   });
 
+  test('sound: starts muted until the speaker is turned on once', () => {
+    const store = fakeStore();
+    ok(SF.createSound({ storage: store, AudioContext: null }).muted, 'fresh device → muted');
+    const s = SF.createSound({ storage: store, AudioContext: null });
+    s.setMuted(false);
+    ok(!SF.createSound({ storage: store, AudioContext: null }).muted, 'remembered as on');
+    ok(SF.createSound({ storage: null, AudioContext: null }).muted, 'no storage → muted');
+  });
+
+  // 가짜 Audio: play/pause 기록, ended/error 이벤트를 직접 일으킬 수 있다
+  function fakeAudio() {
+    const made = [];
+    class A {
+      constructor() { this.src = ''; this.paused = true; this.plays = []; this.h = {}; made.push(this); }
+      addEventListener(k, f) { this.h[k] = f; }
+      play() { this.paused = false; this.plays.push(this.src); return Promise.resolve(); }
+      pause() { this.paused = true; }
+      fire(k) { this.h[k] && this.h[k](); }
+    }
+    A.made = made;
+    return A;
+  }
+
+  test('bgm: plays the files in a loop, only while on', () => {
+    const A = fakeAudio();
+    const doc = { hidden: false, addEventListener(k, f) { doc.h = f; } };
+    const b = SF.createBgm({ files: ['a.mp3', 'b.mp3', 'c.mp3'], volume: 0.3 }, { Audio: A, doc });
+    const a = A.made[0];
+    eq(a.src, '', 'nothing loaded before it is turned on');
+    eq(a.preload, 'none');
+    b.setOn(true);
+    eq(a.src, 'a.mp3'); ok(!a.paused, 'playing'); near(a.volume, 0.3, 1e-9);
+    a.fire('ended'); eq(a.src, 'b.mp3');
+    a.fire('error'); eq(a.src, 'c.mp3', 'bad file is skipped');
+    a.fire('ended'); eq(a.src, 'a.mp3', 'wraps around');
+    b.setOn(false); ok(a.paused, 'paused when off');
+    a.fire('ended'); ok(a.paused, 'stays off between tracks');
+    b.setOn(true); ok(!a.paused);
+    doc.hidden = true; doc.h(); ok(a.paused, 'paused when the app is hidden');
+    doc.hidden = false; doc.h(); ok(!a.paused, 'resumes when back');
+  });
+
+  test('bgm: without files or Audio it does nothing', () => {
+    SF.createBgm({ files: [] }, { Audio: fakeAudio() }).setOn(true);
+    SF.createBgm(null, { Audio: null }).setOn(true);
+    eq(SF.createBgm({ files: ['a.mp3'] }, { Audio: null }).player, null);
+  });
+
   test('talk: science facts do not repeat in a run', () => {
     const t = SF.createTalk(SF.makeRng(1));
     const seen = new Set();
@@ -1372,7 +1420,7 @@
     eq(r.correct, 24);
     eq(r.wrong, 6);
     eq(r.falls, 3);
-    eq(r.score, 16100);
+    eq(r.score, 20600);
     eq(r.maxCombo, 80);
     eq(r.runId, 'run-1');
     ok(!r.test && !r.quit, 'not test, not quit');
@@ -1469,7 +1517,7 @@
   });
 
   test('server: score is recomputed', () => {
-    eq(SFS.scoreOf(goodRec()), 16100);
+    eq(SFS.scoreOf(goodRec()), 20600);
     eq(SFS.scoreOf(goodRec({ bestFloor: 420, finished: false, climbTime: 900, correct: 18, maxCombo: 60 })), 8400);
   });
 
@@ -1620,7 +1668,7 @@
 
   test('sheet server: the score is recomputed, not trusted', () => withGoogle((g) => {
     sPost({ action: 'record', record: goodRec({ score: 999999, runId: 'z' }) });
-    eq(g.sheets.get('랭킹').data[1][8], 16100);
+    eq(g.sheets.get('랭킹').data[1][8], 20600);
   }));
 
   test('sheet server: the same run is saved once', () => withGoogle((g) => {
