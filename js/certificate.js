@@ -72,7 +72,8 @@ window.SF = window.SF || {};
     const img = who.right.idle[0];
     ctx.fillStyle = '#f3e3bf';
     ctx.fillRect(W / 2 - 92, 192, 184, 220);
-    ctx.drawImage(img, W / 2 - 64, 206, 128, 192);
+    ctx.imageSmoothingEnabled = false;
+    SF.drawSprite(ctx, img, W / 2 - 64, 206, 8); // 16×24 상자를 8배로
 
     center(name, 476, 44, '#3a2210');
     center(cls, 516, 24, '#5c3c12', '600');

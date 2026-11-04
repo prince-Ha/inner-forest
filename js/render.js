@@ -239,7 +239,7 @@ window.SF = window.SF || {};
       const bottom = top - vp.viewH;
       const sx = (x) => Math.round((x + offX) * z);
       const sy = (y) => Math.round((top - y) * z);
-      const img = (im, x, yTop) => ctx.drawImage(im, sx(x), sy(yTop), im.width * z, im.height * z);
+      const img = (im, x, yTop) => (im.sc ? SF.drawSprite(ctx, im, sx(x), sy(yTop), z) : ctx.drawImage(im, sx(x), sy(yTop), im.width * z, im.height * z));
       const g = level.grid;
 
       // 1) 배경 (패럴랙스)

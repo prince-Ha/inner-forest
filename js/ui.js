@@ -35,9 +35,11 @@ window.SF = window.SF || {};
       b.className = 'char-opt';
       b.setAttribute('role', 'radio');
       const cnv = document.createElement('canvas');
-      cnv.width = 16;
-      cnv.height = 24;
-      cnv.getContext('2d').drawImage(game.sprites.characters[c.id].right.idle[0], 0, 0);
+      cnv.width = 48; // 16×24 상자의 3배 (그림은 그 안에 맞춰 그려진다)
+      cnv.height = 72;
+      const cg = cnv.getContext('2d');
+      cg.imageSmoothingEnabled = false;
+      SF.drawSprite(cg, game.sprites.characters[c.id].right.idle[0], 0, 0, 3);
       b.appendChild(cnv);
       b.appendChild(Object.assign(document.createElement('span'), { textContent: c.name }));
       b.addEventListener('click', () => choose(c.id));

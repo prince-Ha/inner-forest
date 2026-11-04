@@ -52,7 +52,13 @@ window.SF = window.SF || {};
     conn.state = 'wait';
     return SF.sheet.bootstrap().then((b) => {
       if (b.questions.length) game.bank = b.questions; // 다음 판부터 시트 문제
-      SF.applyTalkLines(b.lines);
+      // 시트의 캐릭터 칸(하치와레·오데)을 캐릭터 id로 바꿔서 넘긴다. 예전 시트 설치본이면 캐릭터 문구가 없다
+      let byChar;
+      if (b.charLines) {
+        byChar = {};
+        for (const c of SF.CHARACTERS) byChar[c.id] = b.charLines[c.name] || {};
+      }
+      SF.applyTalkLines(b.lines, byChar);
       conn.questions = b.questions.length;
       conn.state = 'ok';
       return SF.sheet.flush();

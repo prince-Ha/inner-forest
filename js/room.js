@@ -103,7 +103,7 @@ SF.drawGhosts = function (ctx, v) {
     const who = (o.charId && v.sprites.characters[o.charId]) || v.sprites.player;
     const im = who.right.idle[0];
     ctx.globalAlpha = 0.45;
-    ctx.drawImage(im, v.sx(x), v.sy(o.y + 24), im.width * z, im.height * z);
+    SF.drawSprite(ctx, im, v.sx(x), v.sy(o.y + 24), z);
     const key = o.nick + '|' + z;
     if (o.labelKey !== key) { o.label = makeLabel(o.nick, z); o.labelKey = key; }
     ctx.globalAlpha = 0.85;

@@ -40,31 +40,75 @@ window.SF = window.SF || {};
     ],
   };
 
-  let lines = SF.TALK_DEFAULTS;
-  // 시트 문구로 바꾸기: 문구가 있는 상황만 바꾸고 나머지는 기본. null이면 기본으로 되돌림
-  SF.applyTalkLines = function (custom) {
-    const next = {};
-    for (const k in SF.TALK_DEFAULTS) {
-      const v = custom && custom[k];
-      next[k] = Array.isArray(v) && v.some((s) => typeof s === 'string' && s.trim())
-        ? v.filter((s) => typeof s === 'string' && s.trim()) : SF.TALK_DEFAULTS[k];
-    }
-    lines = next;
+  // 캐릭터마다 말투가 다른 기본 문구 (시트 '말풍선' 탭 캐릭터 칸에 같은 내용이 들어 있어요). 적지 않은 상황은 위 공통 문구를 써요
+  SF.TALK_CHAR_DEFAULTS = {
+    hachiware: {
+      start: ['좋아, 가보자!', '두근두근 출발이야!', '오늘도 힘내자!'],
+      fall: ['으앗! 괜찮아 괜찮아!', '다시 올라가면 돼!', '떨어졌지만 웃자!', '앗, 중력이다~'],
+      hit: ['아야야!', '앗, 깜짝이야!', '조심조심~'],
+      gust: ['바람이 휘잉~!', '날아가겠다~!', '꽉 붙잡아!'],
+      gustIntro: ['앗, 돌풍 구간이야! 멈추지 말고 가자!'],
+      combo10: ['좋아 좋아, 리듬 탔어!'],
+      combo30: ['우와, 손이 안 보여!'],
+      combo50: ['전설의 등반가다!'],
+      finish: ['해냈다! 정상이야!'],
+      timeup: ['앗, 시간이 다 됐어!'],
+    },
+    ode: {
+      start: ['오데, 간다!', '오데 올라간다!', '오데 힘 세다!'],
+      fall: ['으어어! 떨어졌다!', '오데 안 아프다!', '다시 간다, 오데!'],
+      hit: ['아얏! 오데 맞았다!', '오데 아프다…', '저건 뭐야!'],
+      gust: ['바람 세다, 오데 날아간다!', '으아아, 휘잉!'],
+      gustIntro: ['바람 분다! 오데 꽉 잡는다!'],
+      combo10: ['오데 신난다!'],
+      combo30: ['오데 빠르다!'],
+      combo50: ['오데가 제일 세다!'],
+      finish: ['오데 해냈다! 꼭대기다!'],
+      timeup: ['오데 아직 더 오르고 싶다!'],
+    },
   };
 
-  SF.createTalk = function (rng) {
+  let lines = SF.TALK_DEFAULTS;
+  let charLines = SF.TALK_CHAR_DEFAULTS;
+  const clean = (v) => (Array.isArray(v) ? v.filter((s) => typeof s === 'string' && s.trim()) : []);
+  // 시트 문구로 바꾸기: 문구가 있는 상황만 바꾸고 나머지는 기본. null이면 기본으로 되돌림
+  //   custom   = { 상황: [문구…] }  공통 문구
+  //   byChar   = { 캐릭터id: { 상황: [문구…] } }  캐릭터별 문구 (그 캐릭터가 없는 상황은 공통 문구를 씀)
+  SF.applyTalkLines = function (custom, byChar) {
+    const next = {};
+    for (const k in SF.TALK_DEFAULTS) {
+      const v = clean(custom && custom[k]);
+      next[k] = v.length ? v : SF.TALK_DEFAULTS[k];
+    }
+    lines = next;
+    const nc = {};
+    for (const id of Object.keys(byChar || SF.TALK_CHAR_DEFAULTS)) {
+      nc[id] = {};
+      for (const k in SF.TALK_DEFAULTS) {
+        const v = clean(byChar && byChar[id] && byChar[id][k]);
+        // 시트에서 캐릭터 문구를 받았으면 그 내용만(없는 상황은 공통 문구), 못 받았으면 기본 말투
+        const fallback = byChar ? [] : clean(SF.TALK_CHAR_DEFAULTS[id] && SF.TALK_CHAR_DEFAULTS[id][k]);
+        nc[id][k] = v.length ? v : fallback;
+      }
+    }
+    charLines = nc;
+  };
+
+  // charId를 주면 그 캐릭터 말투를 우선으로
+  SF.createTalk = function (rng, charId) {
     const r = rng || SF.makeRng((Math.random() * 4294967296) >>> 0);
-    const facts = lines.fact.slice();
+    const mine = (charId && charLines[charId]) || {};
+    const pickList = (kind) => (mine[kind] && mine[kind].length ? mine[kind] : lines[kind]);
+    const facts = pickList('fact').slice();
     for (let i = facts.length - 1; i > 0; i--) {
       const j = Math.floor(r.next() * (i + 1));
       [facts[i], facts[j]] = [facts[j], facts[i]];
     }
-    const now = lines;
     let next = 0;
     return {
       fact() { return facts[next++ % facts.length]; },
       line(kind, n) {
-        const list = kind === 'combo' ? now['combo' + n] : now[kind];
+        const list = pickList(kind === 'combo' ? 'combo' + n : kind);
         return list && list.length ? r.pick(list) : null;
       },
     };

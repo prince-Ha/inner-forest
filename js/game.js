@@ -341,7 +341,7 @@ window.SF = window.SF || {};
     game.quizQ = null;
     els.quiz.classList.add('hidden');
     game.combo = SF.createCombo();
-    game.talk = SF.createTalk();
+    game.talk = SF.createTalk(null, game.charId); // 고른 캐릭터의 말투로
     game.popups.length = 0;
     game.particles.length = 0;
     game.bubble = null;

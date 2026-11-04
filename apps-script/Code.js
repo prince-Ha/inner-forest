@@ -27,7 +27,7 @@ var SFS = (function () {
 
   var HEADERS = {
     '문제': ['번호', '문제', '보기A', '보기B', '보기C', '보기D', '정답', '해설', '사용'],
-    '말풍선': ['상황', '문구', '사용'],
+    '말풍선': ['상황', '문구', '사용', '캐릭터'],
     '기록': ['기록일시', '학생ID', '이름', '학년', '반', '캐릭터', '최고층', '완주', '등반시간(초)', '전체시간(초)',
       '정답', '오답', '추락', '최고콤보', '점수', '그만둠', '판번호'],
     '랭킹': ['학생ID', '이름', '학년', '반', '캐릭터', '최고층', '완주', '등반시간(초)', '점수', '정답', '완주일시', '기록일시'],
@@ -130,17 +130,30 @@ var SFS = (function () {
     return out;
   }
 
-  // 말풍선 탭 → { start: [...], fact: [...], ... }
-  function parseLines(rows) {
+  // 말풍선 탭 → { start: [...], fact: [...], ... }. who가 없으면 캐릭터 칸이 빈 공통 문구, 있으면 그 캐릭터 이름(하치와레·오데)의 문구
+  function parseLines(rows, who) {
     var out = {};
     for (var i = 1; i < rows.length; i++) {
       var r = rows[i];
       if (!r || off(r[2])) continue;
+      var rowWho = String(r[3] == null ? '' : r[3]).trim();
+      if (rowWho !== (who || '')) continue;
       var key = LINE_KEYS[String(r[0] == null ? '' : r[0]).trim()];
       var text = String(r[1] == null ? '' : r[1]).trim();
       if (!key || !text) continue;
       (out[key] = out[key] || []).push(text);
     }
+    return out;
+  }
+  // 말풍선 탭의 캐릭터 칸에 적힌 이름들 → { 하치와레: {...}, 오데: {...} }
+  function parseCharLines(rows) {
+    var names = {};
+    for (var i = 1; i < rows.length; i++) {
+      var w = rows[i] && String(rows[i][3] == null ? '' : rows[i][3]).trim();
+      if (w) names[w] = true;
+    }
+    var out = {};
+    Object.keys(names).forEach(function (w) { out[w] = parseLines(rows, w); });
     return out;
   }
 
@@ -208,11 +221,29 @@ var SFS = (function () {
     ['과학상식', '바람은 기압이 높은 곳에서 낮은 곳으로 불어요'],
   ].map(function (r) { return [r[0], r[1], 'O']; });
 
+  // 캐릭터마다 다른 말투 (4번째 칸이 캐릭터 이름). 캐릭터 문구가 없는 상황은 위 공통 문구를 써요
+  var SEED_CHAR_LINES = [
+    ['출발', '좋아, 가보자!', '하치와레'], ['출발', '두근두근 출발이야!', '하치와레'], ['출발', '오늘도 힘내자!', '하치와레'],
+    ['추락', '으앗! 괜찮아 괜찮아!', '하치와레'], ['추락', '다시 올라가면 돼!', '하치와레'], ['추락', '떨어졌지만 웃자!', '하치와레'], ['추락', '앗, 중력이다~', '하치와레'],
+    ['맞음', '아야야!', '하치와레'], ['맞음', '앗, 깜짝이야!', '하치와레'], ['맞음', '조심조심~', '하치와레'],
+    ['바람', '바람이 휘잉~!', '하치와레'], ['바람', '날아가겠다~!', '하치와레'], ['바람', '꽉 붙잡아!', '하치와레'],
+    ['돌풍안내', '앗, 돌풍 구간이야! 멈추지 말고 가자!', '하치와레'],
+    ['콤보10', '좋아 좋아, 리듬 탔어!', '하치와레'], ['콤보30', '우와, 손이 안 보여!', '하치와레'], ['콤보50', '전설의 등반가다!', '하치와레'],
+    ['완주', '해냈다! 정상이야!', '하치와레'], ['시간종료', '앗, 시간이 다 됐어!', '하치와레'],
+    ['출발', '오데, 간다!', '오데'], ['출발', '오데 올라간다!', '오데'], ['출발', '오데 힘 세다!', '오데'],
+    ['추락', '으어어! 떨어졌다!', '오데'], ['추락', '오데 안 아프다!', '오데'], ['추락', '다시 간다, 오데!', '오데'],
+    ['맞음', '아얏! 오데 맞았다!', '오데'], ['맞음', '오데 아프다…', '오데'], ['맞음', '저건 뭐야!', '오데'],
+    ['바람', '바람 세다, 오데 날아간다!', '오데'], ['바람', '으아아, 휘잉!', '오데'],
+    ['돌풍안내', '바람 분다! 오데 꽉 잡는다!', '오데'],
+    ['콤보10', '오데 신난다!', '오데'], ['콤보30', '오데 빠르다!', '오데'], ['콤보50', '오데가 제일 세다!', '오데'],
+    ['완주', '오데 해냈다! 꼭대기다!', '오데'], ['시간종료', '오데 아직 더 오르고 싶다!', '오데'],
+  ].map(function (r) { return [r[0], r[1], 'O', r[2]]; });
+
   return {
     RULES: RULES, HEADERS: HEADERS, LINE_KEYS: LINE_KEYS, DEFAULT_BAD_WORDS: DEFAULT_BAD_WORDS,
     quizzesUpTo: quizzesUpTo, scoreOf: scoreOf, checkRecord: checkRecord, better: better,
-    cleanMessage: cleanMessage, parseQuestions: parseQuestions, parseLines: parseLines,
-    SEED_QUESTIONS: SEED_QUESTIONS, SEED_LINES: SEED_LINES,
+    cleanMessage: cleanMessage, parseQuestions: parseQuestions, parseLines: parseLines, parseCharLines: parseCharLines,
+    SEED_QUESTIONS: SEED_QUESTIONS, SEED_LINES: SEED_LINES, SEED_CHAR_LINES: SEED_CHAR_LINES,
   };
 })();
 
@@ -250,6 +281,12 @@ function setup() {
   };
   seed('문제', SFS.SEED_QUESTIONS);
   seed('말풍선', SFS.SEED_LINES);
+  // 예전에 설치한 시트(말풍선 탭에 캐릭터 칸이 없던 것) 고치기: 머리줄에 '캐릭터' 칸을 더하고, 캐릭터 말투가 하나도 없으면 기본 말투를 덧붙인다
+  var talk = ss.getSheetByName('말풍선');
+  if (String(talk.getDataRange().getValues()[0][3] || '').trim() !== '캐릭터') talk.getRange(1, 4).setValue('캐릭터');
+  if (!talk.getDataRange().getValues().slice(1).some(function (r) { return String(r[3] == null ? '' : r[3]).trim(); })) {
+    SFS.SEED_CHAR_LINES.forEach(function (r) { talk.appendRow(r); });
+  }
   seed('설정', [
     ['비밀번호', '6666', '선생님 모드 비밀번호 (게임 config.js의 teacher.password와 같게)'],
     ['금지어', SFS.DEFAULT_BAD_WORDS.join(','), '쉼표로 구분. 한마디에 이 말이 들어 있으면 막아요'],
@@ -342,7 +379,8 @@ function handle_(action, body) {
   var teacher = function () { return String(body.password == null ? '' : body.password).trim() === settings_().password; };
   switch (action) {
     case 'bootstrap':
-      return { ok: true, questions: SFS.parseQuestions(rows_('문제')), lines: SFS.parseLines(rows_('말풍선')) };
+      return { ok: true, questions: SFS.parseQuestions(rows_('문제')), lines: SFS.parseLines(rows_('말풍선')),
+        charLines: SFS.parseCharLines(rows_('말풍선')) };
     case 'board':
       return { ok: true, ranking: sortedRanking_(), messages: messages_(false).slice(0, 100) };
     case 'record':

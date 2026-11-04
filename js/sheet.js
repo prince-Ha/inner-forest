@@ -59,7 +59,8 @@ window.SF = window.SF || {};
       async bootstrap() {
         const res = await get('bootstrap');
         if (!res || !res.ok) throw new Error((res && res.error) || 'bad');
-        return { questions: (res.questions || []).filter(goodQuestion), lines: res.lines || {} };
+        // charLines: 캐릭터 이름별 말풍선 (예전 시트 설치본에는 없다)
+        return { questions: (res.questions || []).filter(goodQuestion), lines: res.lines || {}, charLines: res.charLines || null };
       },
       // 한 판의 기록 보내기. 테스트 기록은 보내지 않음, 연결이 안 되면 모아 둠
       async sendRecord(record) {

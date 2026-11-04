@@ -1397,9 +1397,19 @@
     ok(msgs.includes('teacher.password'), msgs);
   });
 
-  test('characters: four friends with full frame sets', () => {
-    eq(SF.CHARACTERS.map((c) => c.id).join(','), 'chiikawa,hachiware,usagi,rakko');
-    eq(SF.CHARACTERS.map((c) => c.name).join(','), '치이카와,하치와레,우사기,랏코');
+  test('characters: original art is rectangular and uses only its colors', () => {
+    for (const c of SF.CHARACTERS) {
+      const art = SF.ART[c.art];
+      ok(art, 'art for ' + c.id);
+      const w = art.rows[0].length;
+      ok(art.rows.every((r) => r.length === w), c.id + ' rows have different widths');
+      for (const r of art.rows) for (const ch of r) ok(ch === '.' || art.pal[ch], c.id + ' unknown color "' + ch + '"');
+    }
+  });
+
+  test('characters: hachiware and ode with full frame sets', () => {
+    eq(SF.CHARACTERS.map((c) => c.id).join(','), 'hachiware,ode');
+    eq(SF.CHARACTERS.map((c) => c.name).join(','), '하치와레,오데');
     const S = SF.buildSprites();
     const counts = { idle: 2, walk: 4, step: 1, fall: 2, land: 1 };
     for (const c of SF.CHARACTERS) {
@@ -1408,7 +1418,12 @@
       for (const k in counts) {
         eq(set.right[k].length, counts[k], c.id + ' ' + k);
         eq(set.left[k].length, counts[k], c.id + ' ' + k + ' mirrored');
-        for (const f of set.right[k]) eq(f.width + 'x' + f.height, '16x24', c.id + ' ' + k + ' size');
+        for (const f of set.right[k].concat(set.left[k])) {
+          // 상자(16×24 게임 칸) 안에 대략 들어오는 크기: 너무 크거나 작으면 캐릭터가 이상해진다
+          ok(f.sc > 0, c.id + ' ' + k + ' scale');
+          const w = (f.width - 16) * f.sc, h = (f.height - 11) * f.sc; // 둘레 여백 빼고
+          ok(w >= 12 && w <= 22 && h >= 18 && h <= 27, c.id + ' ' + k + ' size ' + w.toFixed(1) + 'x' + h.toFixed(1));
+        }
       }
     }
   });
@@ -1765,6 +1780,53 @@
     const norm = (o) => JSON.stringify(Object.keys(o).sort().map((k) => [k, o[k]]));
     eq(norm(seed), norm(SF.TALK_DEFAULTS));
   });
+
+  // ---------------------------------------------------------------- 캐릭터별 말투 (하치와레·오데)
+  test('talk: sheet character seed lines are the built-in tones', () => {
+    const seed = SFS.parseCharLines([SFS.HEADERS['말풍선']].concat(SFS.SEED_LINES, SFS.SEED_CHAR_LINES));
+    eq(Object.keys(seed).sort().join(','), '오데,하치와레');
+    for (const c of SF.CHARACTERS) {
+      const want = SF.TALK_CHAR_DEFAULTS[c.id];
+      const got = seed[c.name];
+      ok(got, 'sheet lines for ' + c.name);
+      eq(JSON.stringify(Object.keys(got).sort().map((k) => [k, got[k]])), JSON.stringify(Object.keys(want).sort().map((k) => [k, want[k]])), c.name);
+    }
+    // 캐릭터 칸이 비어 있는 줄은 공통 문구로만 모인다
+    eq(JSON.stringify(SFS.parseLines([SFS.HEADERS['말풍선']].concat(SFS.SEED_LINES, SFS.SEED_CHAR_LINES)).start), JSON.stringify(SF.TALK_DEFAULTS.start));
+  });
+
+  test('talk: each character speaks in its own tone, other kinds fall back to common', () => {
+    SF.applyTalkLines({ fact: ['공통 상식'], start: ['공통 출발'] }, { hachiware: { start: ['하치 출발'] }, ode: { start: ['오데 출발'] } });
+    try {
+      eq(SF.createTalk(SF.makeRng(1), 'hachiware').line('start'), '하치 출발');
+      eq(SF.createTalk(SF.makeRng(1), 'ode').line('start'), '오데 출발');
+      eq(SF.createTalk(SF.makeRng(1), null).line('start'), '공통 출발', 'no character → common');
+      eq(SF.createTalk(SF.makeRng(1), 'ode').line('fall') === null, false, 'falls back to the built-in common lines');
+      ok(SF.TALK_DEFAULTS.fall.includes(SF.createTalk(SF.makeRng(1), 'ode').line('fall')), 'common fall line');
+      eq(SF.createTalk(SF.makeRng(1), 'ode').fact(), '공통 상식');
+    } finally {
+      SF.applyTalkLines(null);
+    }
+    // 시트 없이: 캐릭터마다 기본 말투
+    eq(SF.TALK_CHAR_DEFAULTS.ode.finish.includes(SF.createTalk(SF.makeRng(1), 'ode').line('finish')), true);
+    eq(SF.TALK_CHAR_DEFAULTS.hachiware.start.includes(SF.createTalk(SF.makeRng(1), 'hachiware').line('start')), true);
+    eq(SF.createTalk(SF.makeRng(1), 'ode').line('combo', 30), SF.TALK_CHAR_DEFAULTS.ode.combo30[0]);
+  });
+
+  test('sheet server: old sheets get the character column and tones on setup, bootstrap sends them', () => withGoogle((g) => {
+    // 예전 설치본: 머리줄이 3칸이고 캐릭터 말투가 없다
+    const talk = g.sheets.get('말풍선');
+    talk.data.length = 0;
+    talk.data.push(['상황', '문구', '사용'], ['출발', '가 보자!', 'O']);
+    setup();
+    eq(talk.data[0][3], '캐릭터', 'header gets the new column');
+    eq(talk.data.length, 2 + SFS.SEED_CHAR_LINES.length, 'tones appended once');
+    setup();
+    eq(talk.data.length, 2 + SFS.SEED_CHAR_LINES.length, 'running setup again adds nothing');
+    const r = sGet('bootstrap');
+    ok(r.charLines['오데'].finish.length === 1 && r.charLines['하치와레'].start.length === 3, JSON.stringify(Object.keys(r.charLines)));
+    eq(r.lines.start.join(','), '가 보자!', 'common lines stay common');
+  }));
 
   // ---------------------------------------------------------------- 3단계: 랭킹 보드·저장 안내 (화면에 쓰는 순수 함수)
   const RANK = [
