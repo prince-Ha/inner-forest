@@ -147,6 +147,7 @@
         </div>
         <div class="menu">
           <button id="cert-btn" type="button" class="big-btn" hidden>증명서 보기</button>
+          <button id="challenge-btn" type="button" class="big-btn challenge" hidden>1000층까지 도전!</button>
           <button id="board-from-result" type="button" class="menu-btn">랭킹 보기</button>
           <button id="restart" type="button" class="menu-btn">다시 하기</button>
           <button id="result-home" type="button" class="menu-btn">처음 화면</button>
@@ -224,6 +225,9 @@
       </div>
     </div>
 
+    <!-- 1000층 정복 축하 (움짤·꽃가루) -->
+    <div id="cheer" aria-live="polite"></div>
+
     <div id="notice" class="overlay" hidden>
       <div class="panel notice-panel">
         <h2>설정을 확인해 주세요</h2>
@@ -255,11 +259,13 @@
 <script src="js/hazards.js"></script>
 <script src="js/level.js"></script>
 <script src="js/bot.js"></script>
+<script src="js/jump.js"></script>
 <script src="js/input.js"></script>
 <script src="js/camera.js"></script>
 <script src="js/characters.js"></script>
 <script src="js/sprites.js"></script>
 <script src="js/certificate.js"></script>
+<script src="js/cheer.js"></script>
 <script src="js/render.js"></script>
 <script src="js/game.js"></script>
 <script src="js/ui.js"></script>

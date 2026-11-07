@@ -17,7 +17,7 @@ window.SF = window.SF || {};
   SF.hazardTiming = function (h, cfg) {
     const O = cfg.obstacles;
     const s = speedOf(h);
-    if (h.kind === 'spikeBall') return { period: O.spikeBall.period / s };
+    if (h.kind === "spikeBall") return { period: (h.period || O.spikeBall.period) / s };
     if (h.kind === 'monkey') return { period: O.banana.period / s, speed: O.banana.speed * s };
     if (h.kind === 'acorn') return { period: O.acorn.period / s, speed: O.acorn.speed * s };
     return {};
@@ -49,7 +49,7 @@ window.SF = window.SF || {};
       }
       const t = time * speedOf(h);
       if (h.kind === 'spikeBall') {
-        const P = O.spikeBall.period;
+        const P = h.period || O.spikeBall.period; // 점프 숲은 장애물마다 느린 주기
         const u = mod(t + h.phase, P) / P;
         const tri = u < 0.5 ? u * 2 : 2 - u * 2;
         const xa = h.c0 * CS + 8, xb = h.c1 * CS + 8;
@@ -299,7 +299,7 @@ window.SF = window.SF || {};
   // ---------------------------------------------------------------- 돌풍: 멈춰 있으면 바람 쪽으로 한 칸 밀린다
   // 맵 전체가 같은 시계: period초마다 [예고 warn초 → 바람 blow초 → 잠잠]. 방향은 왼쪽부터 번갈아
   SF.gustAt = function (level, cfg, t) {
-    const G = cfg.obstacles.gust;
+    const G = level.gust || cfg.obstacles.gust; // 점프 숲은 자기 간격 (jump.gustPeriod)
     const u = t - (level.gustPhase || 0);
     if (!G || u < 0) return { phase: 'calm', dir: 0, k: -1, s: 0 }; // 돌풍 설정이 없으면 늘 잠잠
     const k = Math.floor(u / G.period);

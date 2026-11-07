@@ -155,6 +155,7 @@ window.SF = window.SF || {};
 
     // ------------------------------------------------------------ 결과 화면·증명서
     $('result-home').addEventListener('click', () => { game.toHome(); goHome(); });
+    $('challenge-btn').addEventListener('click', () => game.startChallenge(false)); // 600층 완주 뒤 1000층 도전
     // 증명서 저장: claude.ai 화면 안에서는 그 화면의 저장 기능(downloads)으로, 그 밖(깃허브 페이지·파일)에서는 보통 다운로드 링크로
     let downloads = null;
     if (window.claude && typeof window.claude.use === 'function') {

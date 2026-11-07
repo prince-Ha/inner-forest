@@ -141,6 +141,38 @@ window.GAME_CONFIG = {
   // (바꾸면 apps-script/Code.js의 RULES.timeLimitSec도 같게 고치고 다시 붙여 넣어야 기록이 저장돼요)
   timeLimitSec: 1800,
 
+  // 1000층 도전 (601층~): 메이플 점프 퀘스트처럼 발판을 뛰어 오른다. topFloor까지 만들어져 있어요
+  jump: {
+    topFloor: 1000,  // 꼭대기
+    seed: 7,         // 맵 모양 번호
+    speed: 320,      // 점프 힘 (높이 약 2.9칸)
+    walkSpeed: 90,   // 걷는 속도 (픽셀/초)
+    airAccel: 400,   // 공중에서 방향 바꾸는 힘
+    ropeSpeed: 48,   // 밧줄 오르내리는 속도
+    windSpeed: 34,   // 돌풍 구간에서 바람에 밀리는 속도 (픽셀/초). 걸어서 버틸 수 있어요
+    gustPeriod: 6,   // 돌풍이 부는 간격(초). 1~600층은 4초
+    spikePeriod: 2.6, // 가시공 한 번 왕복하는 시간(초). 클수록 느려서 발판에 설 틈이 길어요
+    crumbleDelay: 0.8, // 금 간 발판이 밟고 나서 부서지기까지(초). 1~600층(0.35초)보다 넉넉하게
+    practiceFloors: [900, 950], // 선생님 테스트 모드의 점프 숲 연습 버튼 (601층 버튼은 항상 있어요)
+    // 구간별 난이도 (아래부터). width 발판 폭 [최소, 최대] 칸, minGap 발판 사이 최소 빈칸, twoRowChance 2줄 위로 뛸 확률,
+    //   ropeChance 밧줄 확률, hazards 발판마다 장애물 확률, crumble 금 간 발판 확률, gust 돌풍, speed 장애물 빠르기, double 겹칠 확률
+    bands: [
+      { untilFloor: 700, width: [2, 3], minGap: 1, twoRowChance: 0.6, hazards: { spikeBall: 0.25 } },
+      { untilFloor: 800, width: [1, 2], minGap: 1, twoRowChance: 0.65, hazards: { spikeBall: 0.25, monkey: 0.25 }, crumble: 0.2 },
+      { untilFloor: 900, width: [1, 2], minGap: 1, twoRowChance: 0.7, hazards: { spikeBall: 0.25, monkey: 0.2, acorn: 0.3 }, crumble: 0.3, gust: true, speed: 1.15 },
+      { untilFloor: 1000, width: [1, 2], minGap: 1, twoRowChance: 0.75, hazards: { spikeBall: 0.3, monkey: 0.3, acorn: 0.35 }, crumble: 0.4, gust: true, speed: 1.3, double: 0.35 },
+    ],
+  },
+
+  // 1000층 정복 축하 움짤 (차례로 겹치며 나타나요). seconds초 뒤 또는 화면을 누르면 증명서로
+  cheer: {
+    files: ['assets/cheer/1.gif', 'assets/cheer/2.gif', 'assets/cheer/3.gif', 'assets/cheer/4.gif', 'assets/cheer/5.gif', 'assets/cheer/6.gif', 'assets/cheer/7.gif'],
+    gap: 1.6,          // 다음 움짤이 나오기까지(초). 앞 움짤이 한 번 다 움직이는 시간
+    holdSeconds: 4,    // 모두 나온 뒤 더 보여 주는 시간(초)
+    song: 'assets/cheer/celebrate.mp3', // 축하하는 동안 나오는 노래 (소리를 켜 둔 기기에서만). 비우면 빵빠레만
+    songVolume: 0.8,
+  },
+
   // 배경음: 차례로 반복 재생. 처음에는 꺼져 있고 왼쪽 위 스피커를 누르면 효과음과 함께 켜져요. 비우면 배경음 없음
   bgm: {
     files: ['assets/bgm/1-azure-light.mp3', 'assets/bgm/2-magatia.mp3', 'assets/bgm/3-sleepywood.mp3', 'assets/bgm/4-my-prince-my-kingdom.mp3'],

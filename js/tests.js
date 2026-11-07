@@ -1942,6 +1942,167 @@
     ok(String(SF.messageProblem('가'.repeat(31))).includes('30'), 'too long');
   });
 
+  // ---------------------------------------------------------------- 5단계: 1000층 도전 (점프 숲)
+  test('jump map: every platform is reachable from the one before, up to the top', () => {
+    for (const seed of [CFG.jump.seed, 1, 2, 3, 4, 5]) {
+      const L = SF.buildJumpLevel(CFG, seed);
+      const P = L.platforms;
+      ok(P[0].ground && P[0].row === CFG.totalFloors, "ground row 600 → feet on 601층");
+      eq(P[P.length - 1].row, CFG.jump.topFloor - 1, 'seed ' + seed + ' top platform');
+      for (let i = 1; i < P.length; i++) {
+        ok(P[i].row > P[i - 1].row, 'rows go up');
+        ok(P[i].c0 >= 1 && P[i].c1 <= CFG.world.cols - 2 && P[i].c1 >= P[i].c0, 'seed ' + seed + ' platform ' + i + ' inside walls');
+        ok(SF.jumpLinked(P[i - 1], P[i], L.ropes), 'seed ' + seed + ' platform ' + i + ' (row ' + P[i].row + ') reachable from row ' + P[i - 1].row);
+      }
+      for (const r of L.ropes) {
+        ok(P.some((q) => q.row === r.top && r.col >= q.c0 && r.col <= q.c1), "rope top has a platform");
+        ok(L.grid.get(r.col, r.top) === SF.CELL.SLAB, "rope ends on a slab");
+      }
+      ok(L.ropes.length >= 1, 'seed ' + seed + ' has a rope');
+      ok(P.some((q) => q.row === CFG.totalFloors + 39 && q.c0 === 1), 'rest platform at 640');
+      ok(!P.some((q) => q.row === CFG.totalFloors + 19 && q.rest), 'no rest platform at 620 (every 40 floors)');
+    }
+  });
+
+  test('jump map: side walls are solid all the way up', () => {
+    const L = SF.buildJumpLevel(CFG);
+    for (let r = CFG.totalFloors; r < CFG.jump.topFloor; r++) {
+      ok(L.grid.get(0, r) === SF.CELL.SOLID && L.grid.get(CFG.world.cols - 1, r) === SF.CELL.SOLID, 'wall at row ' + r);
+    }
+    // 벽 쪽으로 세게 튕겨도 벽 안쪽에 멈춘다
+    const W = new SF.World(L.grid, CFG);
+    const p = SF.createPlayer(20, (CFG.totalFloors + 3) * 16);
+    p.grounded = false; p.vx = -90; p.vy = 0;
+    for (let i = 0; i < 240; i++) SF.jumpStep(L, W, p, CFG, -1, false);
+    ok(p.x >= 16 - 0.01, 'stopped by the left wall, x=' + p.x.toFixed(1));
+    p.x = (CFG.world.cols - 2) * 16; p.y = (CFG.totalFloors + 3) * 16; p.grounded = false;
+    for (let i = 0; i < 240; i++) SF.jumpStep(L, W, p, CFG, 1, false);
+    ok(p.x + p.w <= (CFG.world.cols - 1) * 16 + 0.01, 'stopped by the right wall');
+  });
+
+  test('jump map: every spike-ball platform has a long enough gap to land and leave', () => {
+    const L = SF.buildJumpLevel(CFG);
+    const spikes = L.hazards.filter((h) => h.kind === 'spikeBall');
+    ok(spikes.length > 10, 'spike balls: ' + spikes.length);
+    for (const h of spikes) {
+      const pf = L.platforms.find((q) => q.row === h.row);
+      const one = { hazards: [h] };
+      const P = SF.hazardTiming(h, CFG).period;
+      // 발판 위 어딘가에 몸(8px)이 설 자리가 비어 있는 가장 긴 시간
+      let run = 0, best = 0;
+      for (let i = 0; i < 480; i++) {
+        const t = (i / 240) * P;
+        const s = SF.hazardShapes(one, CFG, t)[0];
+        let free = false;
+        for (let x = pf.c0 * 16; x <= (pf.c1 + 1) * 16 - 8; x += 2) if (s.x + s.r < x || s.x - s.r > x + 8) { free = true; break; }
+        run = free ? run + P / 240 : 0;
+        best = Math.max(best, run);
+      }
+      ok(best >= 0.9, 'platform ' + (h.row + 1) + '층: free for ' + best.toFixed(2) + 's (period ' + P.toFixed(2) + ')');
+    }
+  });
+
+  test('jump map: obstacles get busier with height, never on rest or rope platforms', () => {
+    const L = SF.buildJumpLevel(CFG);
+    const byBand = [0, 0, 0, 0];
+    const band = (row) => Math.min(3, Math.floor((row - CFG.totalFloors) / 100)); // 행 600~699 → 601~700층
+    const safe = new Set(L.platforms.filter((q) => q.ground || q.rest || q.ropeFoot || q.ropeTop).map((q) => q.row));
+    for (const h of L.hazards) {
+      byBand[band(h.row)]++;
+      ok(!safe.has(h.row), 'hazard on a safe platform at row ' + h.row);
+      ok(['spikeBall', 'monkey', 'acorn'].includes(h.kind), h.kind);
+      if (h.kind === 'acorn') ok(h.topRow > h.row, 'acorn falls from above');
+    }
+    ok(byBand.every((n) => n > 0), 'every band has obstacles: ' + byBand.join(','));
+    ok(byBand[3] > byBand[0], 'top band busier than the first: ' + byBand.join(','));
+    ok(!L.hazards.some((h) => h.row < 699 && h.kind !== 'spikeBall'), '601~700 only spike balls');
+    ok(L.crumbles.length > 0 && L.crumbles.every((c) => c.row >= 699 && !safe.has(c.row)), 'cracked tiles only from 701, not on safe platforms');
+    const hz = new Set(L.hazards.map((h) => h.row));
+    ok(!L.crumbles.some((c) => hz.has(c.row)), 'no cracked tile on a platform that has an obstacle');
+    ok(L.crumbles.every((c) => c.delay >= 0.8), 'cracked tiles wait 0.8s or more');
+    for (const h of L.hazards) {
+      const q = L.platforms.find((x) => x.row === h.row);
+      if (q.c0 === q.c1) ok(h.kind !== 'monkey' && L.hazards.filter((x) => x.row === h.row).length === 1, 'narrow platform ' + (h.row + 1) + '층: one obstacle, no bananas');
+    }
+    ok(SF.jumpGustHere(CFG, 850) && SF.jumpGustHere(CFG, 950) && !SF.jumpGustHere(CFG, 750) && !SF.jumpGustHere(CFG, 500), 'wind only 801~1000');
+    eq(L.platforms[L.platforms.length - 1].row, 999, '1000층 top');
+    ok(L.platforms.some((q) => q.row === 799 && q.rest), '800층 is a full-width rest platform (quiz later)');
+  });
+
+  test('jump: a jump clears two rows, walking off an edge lands on the platform below', () => {
+    const L = SF.buildJumpLevel(CFG);
+    const W = new SF.World(L.grid, CFG);
+    const p = SF.createPlayer(L.spawn.x, L.spawn.y);
+    let peak = p.y, landed = null;
+    const events = SF.jumpStep(L, W, p, CFG, 0, true);
+    ok(events.some((e) => e.type === 'jump'), 'jump event');
+    for (let i = 0; i < 240 && landed === null; i++) {
+      for (const e of SF.jumpStep(L, W, p, CFG, 0, false)) if (e.type === 'land') landed = e;
+      peak = Math.max(peak, p.y);
+    }
+    ok(peak - L.spawn.y >= 2 * 16 + 4 && peak - L.spawn.y < 4 * 16, 'jump height ' + (peak - L.spawn.y).toFixed(1));
+    ok(landed && p.grounded, "landed again (ground or a platform above)");
+    // 2줄 위 발판으로: 바닥 끝에서 점프
+    const first = L.platforms[1];
+    const start = first.c0 > 3 ? (first.c0 - 1) * 16 - p.w : (first.c1 + 1) * 16 + 1;
+    p.x = start; p.y = L.spawn.y; p.grounded = true;
+    const dir = first.c0 > 3 ? 1 : -1;
+    SF.jumpStep(L, W, p, CFG, dir, true);
+    let on = false;
+    for (let i = 0; i < 240 && !on; i++) { SF.jumpStep(L, W, p, CFG, dir, false); on = p.grounded && p.y === first.row * 16; }
+    ok(on || first.row - L.platforms[0].row === 1, 'reached the first platform (row +' + (first.row - L.platforms[0].row) + ')');
+  });
+
+  test('jump: ropes are grabbed in the air, ▲ climbs to the platform above, jump lets go', () => {
+    const L = SF.buildJumpLevel(CFG);
+    const W = new SF.World(L.grid, CFG);
+    const r = L.ropes[0];
+    const p = SF.createPlayer(r.col * 16 + 8 - 4, r.bottom * 16);
+    p.grounded = true;
+    // 밧줄 앞에서 점프 → 바로(또는 올라가다) 잡는다
+    let grabbed = SF.jumpStep(L, W, p, CFG, 0, true).some((e) => e.type === 'grab');
+    for (let i = 0; i < 120 && !grabbed; i++) for (const e of SF.jumpStep(L, W, p, CFG, 0, false)) if (e.type === 'grab') grabbed = true;
+    ok(grabbed && p.rope === r, 'grabbed the rope');
+    let landed = false;
+    for (let i = 0; i < 120 * 6 && !landed; i++) for (const e of SF.jumpStep(L, W, p, CFG, +1, false)) if (e.type === 'land') landed = true;
+    ok(landed && p.grounded && !p.rope && p.y === r.top * 16, 'climbed onto the platform at the top');
+    // 다시 잡고 놓기
+    p.rope = r; p.y = (r.bottom + 2) * 16; p.grounded = false;
+    const ev = SF.jumpStep(L, W, p, CFG, 0, true);
+    ok(!p.rope && ev.some((e) => e.type === 'jump' && e.off), 'let go with a hop');
+  });
+
+  test('jump: wind blows every 6 seconds in the jump forest, 4 seconds below 600', () => {
+    const L = SF.buildJumpLevel(CFG);
+    eq(L.gust.period, CFG.jump.gustPeriod);
+    eq(CFG.jump.gustPeriod, 6);
+    const first = (lv) => { for (let t = 0.05; t < 20; t += 0.05) if (SF.gustAt(lv, CFG, t).k === 1) return t; return -1; };
+    near(first(L), 6, 0.06, 'second gust at 6s');
+    near(first({}), CFG.obstacles.gust.period, 0.06, 'below 600 unchanged');
+  });
+
+  test('cheer: celebration gifs are spread over the screen, overlap and pop in one after another', () => {
+    const n = CFG.cheer.files.length;
+    ok(n >= 5, 'gifs: ' + n);
+    const L = SF.cheerLayout(n, SF.makeRng(3), { gap: CFG.cheer.gap });
+    // 네 귀퉁이가 다 채워진다 (빈 곳 없게)
+    for (const [qx, qy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) ok(L.some((s) => (s.x < 0.5) === (qx === 0) && (s.y < 0.5) === (qy === 0) && Math.abs(s.y - 0.5) > 0.2), 'corner ' + qx + ',' + qy + ' filled');
+    ok(CFG.cheer.gap >= 1.2, 'slow enough to watch each gif');
+    eq(L.length, n);
+    ok(L.every((s) => s.x >= 0.08 && s.x <= 0.92 && s.y >= 0.12 && s.y <= 0.88), 'inside the screen');
+    const delays = L.map((s) => s.delay).sort((a, b) => a - b);
+    ok(delays.every((d, i) => i === 0 || d > delays[i - 1]), 'one after another');
+    let overlaps = 0;
+    for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) if (Math.abs(L[i].x - L[j].x) < (L[i].size + L[j].size) / 2) overlaps++;
+    ok(overlaps >= 2, 'they overlap (' + overlaps + ')');
+  });
+
+  test('certificate: 1000층 conquest certificate', () => {
+    const t = SF.certificateLines(Object.assign({}, CERT, { floors: 1000, jumpTime: 845 })).join('\n');
+    ok(t.includes('정복 증명서') && t.includes('1000층') && t.includes('정복하였음') && t.includes('정복 도전 14:05'), t);
+    ok(SF.certificateLines(CERT).join('\n').includes('완주 증명서'), '600층 stays 완주');
+  });
+
   // ---------------------------------------------------------------- runner
   // 테스트는 하나씩 차례로 (Promise를 돌려주는 테스트는 끝날 때까지 기다림)
   (async function run() {

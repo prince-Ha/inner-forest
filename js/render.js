@@ -100,8 +100,8 @@ window.SF = window.SF || {};
           px(mx - 1, capY + 1, rgb(P.accent)); px(mx + 1, capY + 1, rgb(P.accent));
         });
       }
-      // 매달린 덩굴 (배경, 어둡게)
-      const vines = rng.int(1, 3);
+      // 매달린 덩굴 (배경, 어둡게). 점프 숲에서는 밧줄과 헷갈려서 안 그린다
+      const vines = level && level.jump ? 0 : rng.int(1, 3);
       for (let n = 0; n < vines; n++) {
         let x = rng.int(4, W - 4);
         const len = rng.int(30, 110);
@@ -169,8 +169,8 @@ window.SF = window.SF || {};
       quizTreads = new Map(quizFloors.map((f) => [f, l.treads.find((t) => t.row === f - 1)]));
       gustBands = [];
       let from = 0;
-      for (const z of cfg.zones) {
-        if (z.hazards && z.hazards.gust) gustBands.push([from * cs - 8, z.untilFloor * cs + 24]);
+      for (const z of (l.jump ? cfg.jump.bands : cfg.zones)) { // 점프 숲은 jump.bands의 gust
+        if (l.jump ? z.gust : z.hazards && z.hazards.gust) gustBands.push([from * cs - 8, z.untilFloor * cs + 24]);
         from = z.untilFloor;
       }
     };
@@ -333,9 +333,20 @@ window.SF = window.SF || {};
         if (visible(yTop)) img(S.rock, rk.col * cs, yTop);
       }
 
+      // 6-1) 밧줄 (점프 숲): 기둥 줄 + 가로 발판
+      for (const rp of level.ropes || []) {
+        const y0 = rp.bottom * cs, y1 = rp.top * cs;
+        if (y0 > top + 40 || y1 < bottom - 40) continue;
+        const X = rp.col * cs + cs / 2;
+        ctx.fillStyle = '#c9a26a';
+        ctx.fillRect(sx(X - 1), sy(y1), 2 * z, (y1 - y0) * z);
+        ctx.fillStyle = '#8a5a2b';
+        for (let y = y0 + 4; y < y1; y += 6) ctx.fillRect(sx(X - 4), sy(y + 1), 8 * z, z);
+      }
+
       // 7) 정상 깃발
       const goal = level.treads[level.treads.length - 1];
-      if (visible(goal.row * cs)) {
+      if (goal && visible(goal.row * cs)) {
         const flag = S.flag[Math.floor(frame.time * 3) % 2];
         const fx = goal.dirIn > 0 ? (goal.c1 + 1) * cs - 14 : goal.c0 * cs + 1;
         img(flag, fx, goal.row * cs + flag.height);

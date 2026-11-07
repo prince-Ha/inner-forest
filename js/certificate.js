@@ -12,12 +12,12 @@ window.SF = window.SF || {};
   SF.certificateLines = function (d) {
     const date = d.date.getFullYear() + '년 ' + (d.date.getMonth() + 1) + '월 ' + d.date.getDate() + '일';
     const lines = [
-      '완주 증명서',
+      d.floors >= 1000 ? '정복 증명서' : '완주 증명서',
       '과학 인내의 숲 ' + d.floors + '층',
       d.name,
       d.grade + '학년 ' + d.classNo + '반',
-      '등반 ' + mmss(d.climbTime) + ' · 퀴즈 ' + d.correct + '/' + d.total + ' · 점수 ' + d.score.toLocaleString('ko-KR'),
-      '위 학생은 「과학 인내의 숲」 ' + d.floors + '층을 완주하였음을 인증합니다.',
+      (d.jumpTime != null ? '600층 ' + mmss(d.climbTime) + ' · 정복 도전 ' + mmss(d.jumpTime) : '등반 ' + mmss(d.climbTime)) + ' · 퀴즈 ' + d.correct + '/' + d.total + ' · 점수 ' + d.score.toLocaleString('ko-KR'),
+      d.floors >= 1000 ? '위 학생은 「과학 인내의 숲」 1000층을 끝까지 올라 정복하였음을 인증합니다.' : '위 학생은 「과학 인내의 숲」 ' + d.floors + '층을 완주하였음을 인증합니다.',
       date,
     ];
     if (d.test) lines.push('테스트 기록 (기록 안 남음)');
@@ -92,7 +92,7 @@ window.SF = window.SF || {};
     ctx.font = 'bold 20px ' + FONT;
     ctx.fillStyle = '#c8322b';
     ctx.textBaseline = 'middle';
-    ctx.fillText('완주', W / 2 + 140, 777);
+    ctx.fillText(d.floors >= 1000 ? '정복' : '완주', W / 2 + 140, 777);
 
     if (testLine) {
       // 테스트 기록은 크게 비스듬히 표시 (진짜 증명서로 쓰이지 않게)

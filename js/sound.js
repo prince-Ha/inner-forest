@@ -113,6 +113,13 @@ window.SF = window.SF || {};
           case 'gustWarn': noise(0.6, 0.12, 500, 900); break;
           case 'gust': noise(1.0, 0.45, 350, 1400); break;
           case 'finish': [523, 659, 784, 1047].forEach((f, k) => tone(f, k === 3 ? 0.45 : 0.12, 'triangle', 0.5, 0, k * 0.12)); break;
+          // 1000층 정복 빵빠레: 짧은 팡파레 → 화음 길게 + 반짝이
+          case 'fanfare': {
+            [[523, 0], [523, 0.12], [523, 0.24], [659, 0.36], [784, 0.62], [659, 0.86], [784, 0.98]].forEach(([f, d]) => tone(f, 0.16, 'square', 0.32, 0, d));
+            [523, 659, 784, 1047].forEach((f) => tone(f, 1.4, 'triangle', 0.4, 0, 1.2));
+            for (let k = 0; k < 10; k++) tone(1400 + Math.random() * 1600, 0.12, 'sine', 0.18, 0, 1.3 + k * 0.11);
+            break;
+          }
           default: break;
         }
       } catch (_) { /* 소리는 실패해도 게임은 계속 */ }

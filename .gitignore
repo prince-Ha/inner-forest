@@ -1,0 +1,4 @@
+# 개발용 파일 (깃허브에 안 올림)
+.claude/
+dev/src/
+dev/out/

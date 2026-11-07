@@ -17,6 +17,7 @@ window.SF = window.SF || {};
     quiz: $('quiz'), quizHead: $('quiz-head'), quizQ: $('quiz-q'), quizChoices: $('quiz-choices'),
     quizResult: $('quiz-result'), quizVerdict: $('quiz-verdict'), quizExplain: $('quiz-explain'), quizContinue: $('quiz-continue'),
     quizSkip: $('quiz-skip'), readyWho: $('ready-who'), certBtn: $('cert-btn'), testBadge: $('test-badge'),
+    challenge: $('challenge-btn'),
   };
   const PLAYING = (s) => s === 'home' || s === 'ready' || s === 'playing'; // 세상이 움직이는 상태
   const INPUT_OK = (s) => s === 'ready' || s === 'playing'; // ◀▶가 먹는 상태
@@ -26,6 +27,13 @@ window.SF = window.SF || {};
   const tracker = SF.createDirTracker(); // 버튼 눌림 표시용
   const sound = SF.createSound();
   const bgm = SF.createBgm(cfg.bgm); // 배경음: 스피커 버튼과 같이 켜지고 꺼진다
+  // 1000층 정복 축하. 축하 노래가 나오는 동안 배경음은 잠깐 멈췄다가 다시
+  const cheer = SF.createCheer(document.getElementById('cheer'), Object.assign({}, cfg, {
+    cheer: Object.assign({}, cfg.cheer, {
+      onSongStart: () => bgm.setOn(false),
+      onSongEnd: () => { if (!sound.muted) bgm.setOn(true); },
+    }),
+  }), sound);
   const STEP = cfg.physics.fixedStep;
   const freshAnim = () => ({ landT: 1, airT: 0, bumpT: 1, flashT: 1, hitT: 9, steps: 0 });
 
@@ -39,6 +47,8 @@ window.SF = window.SF || {};
     student: null, charId: null, pausedFrom: null, teacherUnlocked: false, testMode: false, lastRecord: null, certData: null,
     // 구글 시트: 문제은행(null이면 게임 안 문제), 이 판의 번호, 판이 끝나 기록이 생기면 부를 함수(sheet-ui.js가 채움)
     bank: null, runId: '', onRecord: null,
+    // 1000층 도전 (601층~, jump.js): 도전 중이면 { top }, 600층 맵은 stepSaved에 두었다가 돌아올 때 되돌린다
+    jump: null, jumpLevel: null, stepSaved: null, jumpPressed: false, ropeKeys: new Set(),
     quiz: null, quizQ: null, quizFloor: 0, quizAnswered: false,
     bot: false, debug: { hitbox: false },
     popups: [], particles: [], bubble: null, shakeTime: 0,
@@ -65,7 +75,7 @@ window.SF = window.SF || {};
     const s = Math.max(0, up ? Math.ceil(t - 1e-6) : Math.floor(t + 1e-6));
     return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
   };
-  const limit = () => cfg.timeLimitSec || 0;
+  const limit = () => (game.jump ? 0 : cfg.timeLimitSec || 0); // 1000층 도전은 시간 제한 없음
 
   // 설정·맵 문제를 화면에 보여준다 (휴대폰에서도 보이게, 콘솔이 아니라 화면에)
   function showNotice(messages, fatal) {
@@ -106,6 +116,22 @@ window.SF = window.SF || {};
       b.addEventListener('click', () => game.startPractice(s.floor, s.label));
       els.practiceBtns.appendChild(b);
     }
+    if (cfg.jump) { // 1000층 도전 맵을 바로
+      for (const f of [cfg.totalFloors + 1].concat(cfg.jump.practiceFloors || [])) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = f + "층 점프 숲";
+        b.addEventListener("click", () => { game.startChallenge(true); if (f > cfg.totalFloors + 1) game.teleport(f); });
+        els.practiceBtns.appendChild(b);
+      }
+      // 정복 장면 바로 보기: 1000층 꼭대기에 세운다 (테스트라 기록 안 남음)
+      const win = document.createElement("button");
+      win.type = "button";
+      win.textContent = "1000층 정복 보기";
+      win.addEventListener("click", () => { cheer.preload(); game.startChallenge(true); game.teleport(1000); });
+      els.practiceBtns.appendChild(win);
+      els.practice.hidden = !game.testMode;
+    }
   }
 
   const bounds = () => ({ minTop: vp.viewH - cfg.world.cell, maxTop: (game.level.goalRow + 4) * cfg.world.cell });
@@ -119,7 +145,11 @@ window.SF = window.SF || {};
     setText('best', els.best, (game.practiceFrom ? '연습 · 최고 ' : '최고 ') + game.stats.bestFloor + '층');
     // 제한이 있으면 남은 등반 시간, 없으면 지난 시간
     const left = limit() - game.stats.climbTime;
-    setText('timer', els.timer, limit() ? '남은 ' + mmss(left, true) : SF.formatTime(game.stats.climbTime));
+    setText('timer', els.timer, game.jump ? '도전 ' + mmss(game.stats.jumpTime || 0) : limit() ? '남은 ' + mmss(left, true) : SF.formatTime(game.stats.climbTime));
+    // 밧줄을 잡고 있으면 ◀▶가 ▼▲가 된다
+    const rope = !!(game.jump && game.player.rope);
+    setText('padL', els.left, rope ? '▼' : '◀');
+    setText('padR', els.right, rope ? '▲' : '▶');
     const low = limit() && left <= 60 ? '1' : '0';
     if (hudCache.low !== low) { hudCache.low = low; els.timer.dataset.low = low; }
     const c = game.combo.count;
@@ -157,7 +187,7 @@ window.SF = window.SF || {};
   }
 
   // 이번 판이 기록에 남지 않는가 (테스트 모드, 구간 연습)
-  const notRecorded = () => game.testMode || !!game.practiceFrom;
+  const notRecorded = () => game.testMode || !!game.practiceFrom || !!game.jump; // 1000층 도전은 아직 기록 안 함 (3단계에서)
   // 판이 끝날 때(완주·시간 종료·그만두기) 기록을 만들어 구글 시트로 보낸다 (test 표시가 있으면 안 보냄)
   function recordRun(finished, quit) {
     if (!game.student) return null;
@@ -197,8 +227,29 @@ window.SF = window.SF || {};
       els.scoreTable.appendChild(tr);
     }
     els.resultMeta.textContent = '등반 ' + mmss(s.climbTime) + ' · 전체 ' + mmss(s.totalTime) + ' · 추락 ' + s.falls + '회';
+    // 600층을 완주하면 1000층 도전 버튼 (도전 중에는 안 보임)
+    if (els.challenge) els.challenge.hidden = !(finished && cfg.jump && !game.jump);
     els.finish.classList.remove('hidden');
     game.score = sc;
+  }
+
+  // 1000층 도전에서 맨 위에 서면: 지금 만들어진 꼭대기(topFloor)까지. 1000층이면 정복
+  function finishJump(floor) {
+    game.state = 'finished';
+    tracker.clear();
+    showResult(true);
+    const done = floor >= 1000;
+    els.finishTitle.textContent = (notRecorded() && game.testMode ? '테스트 ' : '') + (done ? '1000층 정복!' : floor + '층 도달!');
+    els.resultMeta.textContent = '도전 ' + mmss(game.stats.jumpTime) + ' · 추락 ' + game.stats.falls + '회';
+    if (done && game.certData) { // 정복 증명서: 1000층, 600층까지 시간 + 정복 도전 시간
+      game.certData.floors = 1000;
+      game.certData.jumpTime = game.stats.jumpTime;
+    }
+    say(done ? game.talk.line('finish') : '여기까지!', 3);
+    if (!done) { sound.play('finish'); return; }
+    // 축하 화면이 결과 상자 위를 덮었다가, 누르거나 시간이 지나면 걷힌다
+    sound.unlock();
+    cheer.show(() => {});
   }
 
   function finish() {
@@ -321,7 +372,7 @@ window.SF = window.SF || {};
 
   function placePlayer(x, y) {
     const p = game.player;
-    p.x = x; p.y = y; p.vx = 0; p.vy = 0; p.grounded = true; p.airStartY = y;
+    p.x = x; p.y = y; p.vx = 0; p.vy = 0; p.grounded = true; p.airStartY = y; p.rope = null;
     game.prev.x = x; game.prev.y = y;
     game.stepper = SF.createStepper();
     game.knocked = false;
@@ -330,7 +381,20 @@ window.SF = window.SF || {};
     if (vp) camera.snap(centerY(p), vp.viewH, bounds());
   }
 
+  // 1000층 도전 맵에서 600층 맵으로 되돌리기
+  function leaveJump() {
+    if (!game.jump) return;
+    const sv = game.stepSaved;
+    if (game.crumbles) SF.restoreCrumbles(game.crumbles, game.level); // 점프 숲의 부서진 발판 되돌리기
+    game.level = sv.level; game.world = sv.world; game.map = sv.map;
+    game.crumbles = sv.crumbles;
+    renderer.setLevel(sv.level);
+    game.jump = null;
+    game.stepSaved = null;
+  }
+
   game.reset = function () {
+    leaveJump();
     const s = game.level.spawn;
     game.player = SF.createPlayer(s.x, s.y);
     game.state = 'ready';
@@ -373,8 +437,58 @@ window.SF = window.SF || {};
     updateHud();
   };
 
+  // 600층 완주 뒤 "1000층까지 도전": 점프 숲 맵으로 바꿔 끼우고 601층 바닥에서 바로 시작 (practice면 테스트 버튼에서)
+  game.startChallenge = function (practice) {
+    if (!cfg.jump) return;
+    cheer.preload(); // 정복 순간 움짤이 바로 뜨게 미리 받아 둔다
+    if (!game.jump) {
+      if (!game.jumpLevel) game.jumpLevel = SF.buildJumpLevel(cfg);
+      game.stepSaved = { level: game.level, world: game.world, map: game.map };
+      game.stepSaved.crumbles = game.crumbles;
+      game.level = game.jumpLevel;
+      game.world = new SF.World(game.level.grid, cfg);
+      game.map = { byRow: new Map() };
+      renderer.setLevel(game.level);
+      game.jump = { top: game.level.topFloor };
+    }
+    if (game.crumbles && game.crumbles !== game.stepSaved.crumbles) SF.restoreCrumbles(game.crumbles, game.level);
+    game.crumbles = SF.createCrumbleState(game.level);
+    game.knocked = false;
+    game.grace = 0;
+    game.throwK = new Map();
+    game.gustKey = '';
+    game.gustIntroDone = false;
+    if (practice) game.practiceFrom = cfg.totalFloors + 1;
+    game.stats.jumpTime = 0;
+    game.bot = false;
+    game.popups.length = 0;
+    game.particles.length = 0;
+    game.anim = freshAnim();
+    placePlayer(game.level.spawn.x, game.level.spawn.y);
+    game.standFloor = null;
+    game.jumpPressed = false;
+    els.finish.classList.add('hidden');
+    els.ready.classList.add('hidden');
+    game.state = 'playing';
+    say('1000층 도전! 화면을 누르면 점프', 2.6);
+    updateHud();
+  };
+  // 점프 (화면 터치·스페이스): 다음 스텝에서 처리
+  game.jumpPress = function () {
+    if (!game.jump || game.state !== 'playing') return;
+    game.jumpPressed = true;
+  };
+
   // 디버그·테스트용: N층 디딤판의 들어서는 칸으로 옮긴다
   game.teleport = function (floor) {
+    if (game.jump) { // 점프 숲: 그 층의 발판 위로
+      // 그 층(없으면 바로 아래)의 발판 위로
+      let pf = game.level.platforms[0];
+      for (const q of game.level.platforms) if (q.row + 1 <= floor && q.row > pf.row) pf = q;
+      placePlayer(pf.c0 * cfg.world.cell + 4, pf.row * cfg.world.cell);
+      resume();
+      return;
+    }
     const t = game.level.treads.find((tr) => tr.row + 1 === floor);
     if (!t) { placePlayer(game.level.spawn.x, game.level.spawn.y); return; }
     const entry = t.dirIn > 0 ? t.c0 : t.c1;
@@ -438,6 +552,12 @@ window.SF = window.SF || {};
         }
         break;
       }
+      case 'jump':
+        sound.play('side');
+        break;
+      case 'grab':
+        sound.play('step');
+        break;
       case 'bump':
         a.bumpT = 0;
         sound.play('bump');
@@ -510,7 +630,7 @@ window.SF = window.SF || {};
   // 돌풍 구간에 있으면: 처음 들어설 때 안내, 예고·바람이 시작될 때 소리
   function gustCues() {
     const p = game.player;
-    if (!SF.inGustZone(cfg, SF.floorAt(p.y))) return;
+    if (!(game.jump ? SF.jumpGustHere(cfg, SF.floorAt(p.y)) : SF.inGustZone(cfg, SF.floorAt(p.y)))) return;
     if (!game.gustIntroDone && p.grounded && game.state === 'playing') {
       game.gustIntroDone = true;
       say(game.talk.line('gustIntro'), 2.4);
@@ -523,7 +643,68 @@ window.SF = window.SF || {};
     else if (g.phase === 'blow') sound.play('gust');
   }
 
+  // 1000층 도전의 한 스텝: 누르고 있는 방향으로 걷고, 점프·밧줄은 jump.js
+  function jumpStepOnce() {
+    const p = game.player;
+    game.prev.x = p.x;
+    game.prev.y = p.y;
+    game.clock += STEP;
+    let dir = game.state === 'playing' ? tracker.getDir() : 0;
+    // 밧줄에 매달려 있으면 ↑↓ 키도 오르내리기 (▶=▲, ◀=▼와 같이)
+    if (p.rope && game.state === 'playing') {
+      let ud = 0;
+      for (const k of game.ropeKeys) ud = k === 'ArrowUp' || k === 'KeyW' ? 1 : -1;
+      if (ud) dir = ud;
+    }
+    let pressed = game.jumpPressed && game.state === 'playing';
+    game.jumpPressed = false;
+    if (game.knocked) { dir = 0; pressed = false; } // 맞고 튕겨 나가는 동안은 조작 안 됨
+    const events = SF.updateCrumbles(game.crumbles, game.level, p, cfg);
+    for (const e of SF.jumpStep(game.level, game.world, p, cfg, dir, pressed)) events.push(e);
+    // 돌풍: 바람이 부는 동안 바람 쪽으로 밀린다 (밧줄에 매달리면 안 밀림). 걸어서 버티거나 점프로 피한다
+    const gz = SF.jumpGustHere(cfg, SF.floorAt(p.y));
+    const gu = SF.gustAt(game.level, cfg, game.clock);
+    if (gz && gu.phase === 'blow' && !p.rope) {
+      const nx = p.x + gu.dir * cfg.jump.windSpeed * STEP;
+      if (game.world.solidHit(nx, p.y, p.w, p.h, gu.dir) === null) p.x = nx;
+    }
+    // 장애물에 맞기: 맞으면 튕겨 나가 실제로 떨어진다. 착지한 뒤 잠깐 무적
+    if (game.grace > 0) game.grace -= STEP;
+    if (game.knocked && (p.grounded || p.rope)) { game.knocked = false; game.grace = cfg.obstacles.graceTime; }
+    if (!game.knocked && game.grace <= 0) {
+      const hit = SF.hazardHit(game.level, cfg, game.clock, SF.playerHazardBox(p));
+      if (hit) {
+        const d = SF.knockDir(hit, p);
+        p.rope = null;
+        p.grounded = false;
+        p.vx = d * cfg.obstacles.knockSpeed;
+        p.vy = cfg.obstacles.knockPopVy;
+        p.airStartY = p.y;
+        game.knocked = true;
+        events.push({ type: 'hit', kind: hit.kind });
+      }
+    }
+    throwSounds();
+    gustCues();
+    // 안전장치: 어떤 이유로든 시작 발판보다 아래로 빠지면 601층 시작 자리로
+    if (p.y < game.level.baseFloor * cfg.world.cell - cfg.world.cell * 2) placePlayer(game.level.spawn.x, game.level.spawn.y);
+    const a = game.anim;
+    a.landT += STEP; a.bumpT += STEP; a.flashT += STEP; a.hitT += STEP;
+    a.airT = p.grounded || p.rope ? 0 : a.airT + STEP;
+    if (dir !== 0 && p.grounded) a.steps += STEP * 8 | 0; // 걷기 그림 넘기기
+    if (game.state === 'playing') { game.stats.jumpTime += STEP; game.stats.totalTime += STEP; }
+    for (const e of events) onEvent(e);
+    const f = SF.floorAt(p.y);
+    if (p.grounded && f !== game.standFloor) {
+      game.standFloor = f;
+      if (game.onFloor) game.onFloor(f);
+    }
+    if (f > game.stats.bestFloor) game.stats.bestFloor = f;
+    if (game.state === 'playing' && p.grounded && f >= game.jump.top) finishJump(f);
+  }
+
   function stepOnce() {
+    if (game.jump) { jumpStepOnce(); return; }
     const p = game.player;
     const st = game.stepper;
     if (game.bot && st.mode === 'idle' && st.queue.length === 0 && p.grounded) {
@@ -626,7 +807,7 @@ window.SF = window.SF || {};
       cameraTop: camera.top, time: now / 1000, popups: game.popups, particles: game.particles, shake,
       anim: game.anim, bubble: game.bubble, debug: game.debug,
       clock: game.clock, crumbles: game.crumbles, blink: game.grace > 0 || game.knocked,
-      gust: { at: SF.gustAt(game.level, cfg, game.clock), here: SF.inGustZone(cfg, SF.floorAt(p.y)),
+      gust: { at: SF.gustAt(game.level, cfg, game.clock), here: game.jump ? SF.jumpGustHere(cfg, SF.floorAt(p.y)) : SF.inGustZone(cfg, SF.floorAt(p.y)),
         hold: cfg.obstacles.gust ? game.gust.idle / cfg.obstacles.gust.hold : 0 },
       quiz: game.quiz, charId: game.charId,
     });
@@ -667,8 +848,22 @@ window.SF = window.SF || {};
       if (!sound.muted) bgm.setOn(true); // 지난번에 켜 둔 기기: 첫 터치 때부터 배경음 (브라우저는 터치 전엔 못 튼다)
       if (!INPUT_OK(game.state)) return;
       if (game.state === 'ready') start();
+      if (game.jump) return; // 점프 숲에서는 누르고 있는 동안 걷는다 (jumpStepOnce가 tracker를 본다)
       if (!game.bot) SF.stepperPress(game.stepper, dir, cfg);
     });
+    // 점프 숲: 게임 화면 아무 데나 누르면 점프, PC는 스페이스·↑·W
+    els.canvas.addEventListener('pointerdown', (e) => { e.preventDefault(); sound.unlock(); game.jumpPress(); });
+    // 밧줄: ↑·W 오르기, ↓·S 내리기 (밧줄이 아니면 ↑은 점프). 스페이스는 언제나 점프(밧줄에서는 놓기)
+    const UPDOWN = { ArrowUp: 1, KeyW: 1, ArrowDown: -1, KeyS: -1 };
+    window.addEventListener('keydown', (e) => {
+      if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+      if (!game.jump || game.state !== 'playing') return;
+      const ud = UPDOWN[e.code];
+      if (ud) { e.preventDefault(); game.ropeKeys.add(e.code); if (!e.repeat && ud > 0 && !game.player.rope) game.jumpPress(); return; }
+      if (e.code === 'Space' && !e.repeat) { e.preventDefault(); game.jumpPress(); }
+    });
+    window.addEventListener('keyup', (e) => { game.ropeKeys.delete(e.code); });
+    window.addEventListener('blur', () => game.ropeKeys.clear());
     // 퀴즈: PC에서는 1~4(또는 A~D) 키로 고르고 Enter·Space로 계속
     window.addEventListener('keydown', (e) => {
       if (game.state !== 'quiz' || e.repeat) return;

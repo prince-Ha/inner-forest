@@ -448,3 +448,43 @@ html, body {
   box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.35);
   transform: translateY(2px);
 }
+
+/* 1000층 도전 버튼 */
+.big-btn.challenge { background: var(--sub); color: var(--ink); }
+
+/* 1000층 정복 축하 (js/cheer.js) */
+#cheer { position: absolute; inset: 0; z-index: 30; overflow: hidden; display: none; background: rgba(20, 12, 6, 0.55); }
+#cheer.show { display: block; animation: cheer-in 0.4s ease-out; }
+#cheer.leaving { animation: cheer-out 0.45s ease-in forwards; }
+@keyframes cheer-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes cheer-out { to { opacity: 0; } }
+.cheer-img {
+  position: absolute; max-width: 260px; height: auto;
+  border-radius: 14px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  transform: translate(-50%, -50%) rotate(var(--rot)) scale(0.2); opacity: 0;
+  animation: cheer-pop 0.7s cubic-bezier(.2, 1.6, .4, 1) forwards, cheer-bob 1.6s ease-in-out infinite alternate;
+}
+@keyframes cheer-pop { to { opacity: 1; transform: translate(-50%, -50%) rotate(var(--rot)) scale(1); } }
+@keyframes cheer-bob {
+  from { opacity: 1; transform: translate(-50%, -50%) rotate(var(--rot)) scale(1); }
+  to { opacity: 1; transform: translate(-50%, -52%) rotate(calc(var(--rot) * -0.5)) scale(1.06); }
+}
+.cheer-title {
+  position: absolute; left: 50%; top: 50%; z-index: 50; text-align: center; white-space: nowrap;
+  transform: translate(-50%, -50%) scale(0.2); opacity: 0;
+  animation: cheer-title 0.8s cubic-bezier(.2, 1.8, .4, 1) forwards;
+  text-shadow: 0 4px 0 #3a2210, 0 0 18px rgba(255, 210, 90, 0.9);
+}
+.cheer-title b { display: block; font-size: 64px; font-weight: 900; color: #F0C96A; line-height: 1; }
+.cheer-title span { display: block; font-size: 44px; font-weight: 900; color: #fff; }
+@keyframes cheer-title { to { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(-4deg); } }
+.cheer-hint { position: absolute; left: 0; right: 0; bottom: 14px; z-index: 50; margin: 0; text-align: center; color: #F7F1E8; font-size: 14px; font-weight: 700; text-shadow: 0 2px 0 #000; }
+.confetti {
+  position: absolute; top: -12px; width: 8px; height: 12px; border-radius: 2px; opacity: 0.9;
+  animation-name: confetti-fall; animation-timing-function: linear; animation-iteration-count: infinite;
+}
+@keyframes confetti-fall {
+  from { transform: translate(0, 0) rotate(0deg); }
+  to { transform: translate(var(--sway), 110vh) rotate(720deg); }
+}
+@media (prefers-reduced-motion: reduce) { .confetti { display: none; } .cheer-img { animation: cheer-pop 0.01s forwards; } }
