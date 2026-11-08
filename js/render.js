@@ -201,7 +201,7 @@ window.SF = window.SF || {};
       const alpha = Math.min(1, (b.life - b.age) / 0.25, b.age / 0.08);
       ctx.save();
       ctx.globalAlpha = Math.max(0, alpha);
-      ctx.font = 'bold ' + Math.round(6.5 * z) + 'px system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif';
+      ctx.font = 'bold ' + Math.round(7.5 * z) + 'px "Galmuri11", system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif';
       const words = b.text.split(' ');
       const maxW = 110 * z;
       const lines = [''];
@@ -210,7 +210,7 @@ window.SF = window.SF || {};
         if (ctx.measureText(tryLine).width > maxW && lines[lines.length - 1]) lines.push(w);
         else lines[lines.length - 1] = tryLine;
       }
-      const lineH = 8.5 * z, padX = 5 * z, padY = 3.5 * z;
+      const lineH = 9.5 * z, padX = 5 * z, padY = 3.5 * z; // 도트 글씨체에 맞춰 조금 크게
       const w = Math.max(...lines.map((l) => ctx.measureText(l).width)) + padX * 2;
       const h = lines.length * lineH + padY * 2;
       const headX = sx(p.x + p.w / 2), headY = sy(p.y + p.h + 6);
@@ -523,7 +523,7 @@ window.SF = window.SF || {};
       // 12) "-N층!" 글자
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.font = 'bold ' + Math.round(10 * z) + 'px system-ui, sans-serif';
+      ctx.font = 'bold ' + Math.round(10 * z) + 'px "Galmuri11", system-ui, sans-serif';
       ctx.lineWidth = Math.max(2, z);
       ctx.lineJoin = 'round';
       for (const pop of frame.popups) {
@@ -542,7 +542,7 @@ window.SF = window.SF || {};
       // 14) 돌풍 알림: 캐릭터가 돌풍 구간에 있을 때 화면 위쪽에 방향 표시 (예고 땐 깜빡임)
       if (gw && gw.here && gu.phase !== 'calm' && (gu.phase === 'blow' || Math.floor(frame.time * 6) % 2)) {
         const text = gu.dir < 0 ? '◀ 돌풍 ◀' : '▶ 돌풍 ▶';
-        ctx.font = 'bold ' + Math.round(9 * z) + 'px system-ui, sans-serif';
+        ctx.font = 'bold ' + Math.round(9 * z) + 'px "Galmuri11", system-ui, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.lineWidth = Math.max(2, z);

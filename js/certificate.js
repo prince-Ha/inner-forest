@@ -4,7 +4,7 @@ window.SF = window.SF || {};
   'use strict';
 
   const W = 600, H = 840;
-  const FONT = 'system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif';
+  const FONT = '"Galmuri11", system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif'; // 게임과 같은 도트 글씨체
   const mmss = (t) => { const s = Math.max(0, Math.floor(t + 1e-6)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 
   // d = { name, grade, classNo, floors, date(Date), climbTime(초), score, correct, total, test }
@@ -77,7 +77,7 @@ window.SF = window.SF || {};
 
     center(name, 476, 44, '#3a2210');
     center(cls, 516, 24, '#5c3c12', '600');
-    center(record, 566, 22, '#8a5a2b', '600');
+    center(record, 566, record.length > 34 ? 16 : 20, '#8a5a2b', '600'); // 도트 글씨체는 넓어서 긴 줄은 작게
     ctx.font = '22px ' + FONT;
     wrap(ctx, sentence, W - 140).forEach((l, i) => center(l, 626 + i * 34, 22, '#3a2210', 'normal'));
     center(date, 744, 24, '#3a2210', '600');

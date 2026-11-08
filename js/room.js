@@ -65,7 +65,7 @@ function treadAt(level, floor) {
 function makeLabel(nick, z) {
   const c = document.createElement('canvas');
   const g = c.getContext('2d');
-  const font = 'bold ' + Math.max(9, Math.round(5.5 * z)) + 'px system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif';
+  const font = 'bold ' + Math.max(9, Math.round(5.5 * z)) + 'px "Galmuri11", system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif';
   g.font = font;
   c.width = Math.ceil(g.measureText(nick).width) + 6;
   c.height = Math.max(9, Math.round(5.5 * z)) + 6;
