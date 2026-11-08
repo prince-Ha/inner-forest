@@ -1,5 +1,5 @@
 // 1000층 도전 (601층~): 메이플스토리 점프 퀘스트처럼 떠 있는 발판·밧줄을 뛰어 오른다 (설계 문서 2026-11-06)
-//  - 조작: ◀▶를 누르고 있으면 걷기, 화면 아무 데나 누르면 점프. 밧줄에 닿으면 잡고, 잡은 채 ▶(▲)로 오르고 ◀(▼)로 내려간다
+//  - 조작: ◀▶를 누르고 있으면 걷기, 화면 아무 데나 누르면 점프. 밧줄은 ▲ 버튼(↑)을 누르고 있으면 잡고 오르고(↓ 내리기), 점프로 놓는다
 //  - 맵: cfg.jump.seed로 만든다. 2~3칸 발판이 지그재그로 올라가고, 20층마다 폭 전체 쉼터, 가끔 밧줄
 //  - 물리는 physics.js의 SF.stepPlayer(걷기·중력·자동 계단)를 그대로 쓰고 점프·밧줄만 여기서 더한다
 window.SF = window.SF || {};
@@ -171,6 +171,7 @@ window.SF = window.SF || {};
     }
     return null;
   }
+  SF.jumpRopeAt = ropeAt; // ▲ 버튼으로 바로 잡을 때 (game.js)
 
   // 한 스텝. dir: 누르고 있는 방향, jumpPressed: 이번 스텝에 점프를 눌렀는가. 이벤트 목록을 돌려준다
   SF.jumpStep = function (level, world, p, cfg, dir, jumpPressed) {
@@ -185,8 +186,8 @@ window.SF = window.SF || {};
         events.push({ type: 'jump', off: true });
         return events;
       }
-      if (dir > 0) p.y += J.ropeSpeed * dt;      // ▶ = 올라가기
-      else if (dir < 0) p.y -= J.ropeSpeed * dt; // ◀ = 내려가기
+      if (dir > 0) p.y += J.ropeSpeed * dt;      // ▲ = 올라가기
+      else if (dir < 0) p.y -= J.ropeSpeed * dt; // ↓ = 내려가기 (PC)
       if (p.y >= r.top * cs) { // 꼭대기: 위 발판에 올라선다
         p.y = r.top * cs; p.rope = null; p.grounded = true; p.airStartY = p.y;
         events.push({ type: 'land', dropFloors: 0, floor: SF.floorAt(p.y) });

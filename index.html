@@ -138,10 +138,10 @@
         <p id="save-status" class="save-status" role="status" hidden></p>
         <!-- 완주 + 기록 저장되면: 완주 기념 한마디 -->
         <div id="msg-box" class="msg-box" hidden>
-          <p class="msg-label">완주 기념 한마디 <span>(30자까지, 랭킹 보드에 올라가요)</span></p>
+          <p class="msg-label">완주 기념 한마디(30자)</p>
           <div class="msg-row">
-            <input id="msg-input" type="text" maxlength="40" autocomplete="off" enterkeyhint="send" placeholder="친구들에게 한마디!">
-            <button id="msg-send" type="button" class="menu-btn small">남기기</button>
+            <input id="msg-input" type="text" maxlength="40" autocomplete="off" enterkeyhint="send" placeholder="여기에 남기세요">
+            <button id="msg-send" type="button" class="big-btn msg-send">남기기</button>
           </div>
           <p id="msg-status" class="msg-status" role="status" hidden></p>
         </div>
@@ -227,6 +227,9 @@
 
     <!-- 1000층 정복 축하 (움짤·꽃가루) -->
     <div id="cheer" aria-live="polite"></div>
+
+    <!-- 점프 숲: 밧줄 오르기 버튼 (누르고 있으면 오른다) -->
+    <button id="btn-up" class="pad-up" type="button" aria-label="밧줄 오르기" hidden>▲</button>
 
     <div id="notice" class="overlay" hidden>
       <div class="panel notice-panel">

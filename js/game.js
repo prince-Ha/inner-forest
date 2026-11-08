@@ -17,7 +17,7 @@ window.SF = window.SF || {};
     quiz: $('quiz'), quizHead: $('quiz-head'), quizQ: $('quiz-q'), quizChoices: $('quiz-choices'),
     quizResult: $('quiz-result'), quizVerdict: $('quiz-verdict'), quizExplain: $('quiz-explain'), quizContinue: $('quiz-continue'),
     quizSkip: $('quiz-skip'), readyWho: $('ready-who'), certBtn: $('cert-btn'), testBadge: $('test-badge'),
-    challenge: $('challenge-btn'),
+    challenge: $('challenge-btn'), up: $('btn-up'),
   };
   const PLAYING = (s) => s === 'home' || s === 'ready' || s === 'playing'; // 세상이 움직이는 상태
   const INPUT_OK = (s) => s === 'ready' || s === 'playing'; // ◀▶가 먹는 상태
@@ -146,10 +146,9 @@ window.SF = window.SF || {};
     // 제한이 있으면 남은 등반 시간, 없으면 지난 시간
     const left = limit() - game.stats.climbTime;
     setText('timer', els.timer, game.jump ? '도전 ' + mmss(game.stats.jumpTime || 0) : limit() ? '남은 ' + mmss(left, true) : SF.formatTime(game.stats.climbTime));
-    // 밧줄을 잡고 있으면 ◀▶가 ▼▲가 된다
-    const rope = !!(game.jump && game.player.rope);
-    setText('padL', els.left, rope ? '▼' : '◀');
-    setText('padR', els.right, rope ? '▲' : '▶');
+    // 점프 숲에서만 ▲(밧줄 오르기) 버튼이 보인다
+    const showUp = game.jump ? '1' : '0';
+    if (hudCache.upBtn !== showUp) { hudCache.upBtn = showUp; els.up.hidden = !game.jump; }
     const low = limit() && left <= 60 ? '1' : '0';
     if (hudCache.low !== low) { hudCache.low = low; els.timer.dataset.low = low; }
     const c = game.combo.count;
@@ -660,12 +659,16 @@ window.SF = window.SF || {};
     game.prev.y = p.y;
     game.clock += STEP;
     let dir = game.state === 'playing' ? tracker.getDir() : 0;
-    // 밧줄에 매달려 있으면 ↑↓ 키도 오르내리기 (▶=▲, ◀=▼와 같이)
-    if (p.rope && game.state === 'playing') {
-      let ud = 0;
-      for (const k of game.ropeKeys) ud = k === 'ArrowUp' || k === 'KeyW' ? 1 : -1;
-      if (ud) dir = ud;
+    // 밧줄: ▲ 버튼·↑·W를 누르고 있으면 오르고, ↓·S면 내려간다. ◀▶는 밧줄에서 쓰지 않는다
+    let ud = 0;
+    for (const k of game.ropeKeys) ud = k === 'ArrowUp' || k === 'KeyW' || k === 'UpBtn' ? 1 : -1;
+    if (game.state !== 'playing') ud = 0;
+    // 밧줄 앞에서 ▲를 누르면 바로 잡는다 (휴대폰: 점프 안 하고도)
+    if (ud > 0 && !p.rope && !game.knocked) {
+      const r = SF.jumpRopeAt(game.level, p, cfg.world.cell);
+      if (r && p.y < r.top * cfg.world.cell - 1) { p.rope = r; p.grounded = false; p.vx = 0; p.vy = 0; onEvent({ type: 'grab' }); }
     }
+    if (p.rope) dir = ud;
     let pressed = game.jumpPressed && game.state === 'playing';
     game.jumpPressed = false;
     if (game.knocked) { dir = 0; pressed = false; } // 맞고 튕겨 나가는 동안은 조작 안 됨
@@ -879,6 +882,17 @@ window.SF = window.SF || {};
     });
     window.addEventListener('keyup', (e) => { game.ropeKeys.delete(e.code); });
     window.addEventListener('blur', () => game.ropeKeys.clear());
+    // ▲ 버튼 (휴대폰): 누르고 있는 동안 밧줄 오르기. 화면 점프로 넘어가지 않게 막는다
+    const upOn = (e) => {
+      e.preventDefault(); e.stopPropagation();
+      try { els.up.setPointerCapture(e.pointerId); } catch (_) { /* 일부 브라우저 */ }
+      sound.unlock();
+      game.ropeKeys.add('UpBtn'); els.up.classList.add('pressed');
+    };
+    const upOff = () => { game.ropeKeys.delete('UpBtn'); els.up.classList.remove('pressed'); };
+    els.up.addEventListener('pointerdown', upOn);
+    ['pointerup', 'pointercancel', 'lostpointercapture'].forEach((t) => els.up.addEventListener(t, upOff));
+    els.up.addEventListener('contextmenu', (e) => e.preventDefault());
     // 퀴즈: PC에서는 1~4(또는 A~D) 키로 고르고 Enter·Space로 계속
     window.addEventListener('keydown', (e) => {
       if (game.state !== 'quiz' || e.repeat) return;
