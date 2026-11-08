@@ -2103,6 +2103,26 @@
     ok(SF.certificateLines(CERT).join('\n').includes('완주 증명서'), '600층 stays 완주');
   });
 
+  test('jump quiz: fixed questions at 800층 and 1000층, each asked once per challenge', () => {
+    const Q = CFG.jump.quizzes;
+    eq(Q.map((x) => x.floor).join(','), '800,1000');
+    for (const x of Q) ok(x.q && x.choices.length === 4 && x.answer >= 0 && x.answer <= 3 && x.explain, 'quiz at ' + x.floor);
+    eq(Q[0].choices[Q[0].answer], 'CaCl₂');
+    eq(Q[1].choices[Q[1].answer], '변하지 않는다');
+    const jump = { quizDone: new Set() };
+    ok(!SF.jumpQuizAt(jump, CFG, 799), 'no quiz on other floors');
+    const a = SF.jumpQuizAt(jump, CFG, 800);
+    ok(a && a.no === 1 && a.total === 2, 'quiz 1/2 at 800');
+    const r = SF.answerJumpQuiz(jump, a.q, 800, 1);
+    ok(r.correct && r.answer === 1 && r.explain, 'right answer');
+    ok(!SF.jumpQuizAt(jump, CFG, 800), 'not asked again');
+    ok(SF.jumpQuizAt(jump, CFG, 1000).no === 2, 'quiz 2/2 at 1000');
+    eq(SF.answerJumpQuiz(jump, Q[1], 1000, 0).correct, false);
+    // 두 층 다 폭 전체 쉼터 (문제 푸는 자리)
+    const L = SF.buildJumpLevel(CFG);
+    ok(L.platforms.some((q) => q.row === 799 && q.rest) && L.platforms.some((q) => q.row === 999 && q.rest), 'rest platforms at 800 and 1000');
+  });
+
   // ---------------------------------------------------------------- runner
   // 테스트는 하나씩 차례로 (Promise를 돌려주는 테스트는 끝날 때까지 기다림)
   (async function run() {

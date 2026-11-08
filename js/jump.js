@@ -212,3 +212,21 @@ window.SF = window.SF || {};
     return events;
   };
 })(window.SF);
+
+// ---------------------------------------------------------------- 정복 퀴즈 (800·1000층): config.jump.quizzes의 고정 문제, 시트와 따로
+window.SF = window.SF || {};
+(function (SF) {
+  'use strict';
+  // 이 층에 아직 안 푼 정복 퀴즈가 있으면 { q, no, total }
+  SF.jumpQuizAt = function (jump, cfg, floor) {
+    const list = (cfg.jump && cfg.jump.quizzes) || [];
+    const i = list.findIndex((x) => x.floor === floor);
+    if (i < 0 || !jump || (jump.quizDone && jump.quizDone.has(floor))) return null;
+    return { q: list[i], no: i + 1, total: list.length };
+  };
+  // 답하기: 그 층은 다시 안 나온다. 결과는 SF.answerQuiz와 같은 모양
+  SF.answerJumpQuiz = function (jump, q, floor, choice) {
+    if (jump) { jump.quizDone = jump.quizDone || new Set(); jump.quizDone.add(floor); }
+    return { correct: choice === q.answer, answer: q.answer, explain: q.explain };
+  };
+})(window.SF);

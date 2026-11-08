@@ -240,7 +240,9 @@ window.SF = window.SF || {};
     showResult(true);
     const done = floor >= 1000;
     els.finishTitle.textContent = (notRecorded() && game.testMode ? '테스트 ' : '') + (done ? '1000층 정복!' : floor + '층 도달!');
-    els.resultMeta.textContent = '도전 ' + mmss(game.stats.jumpTime) + ' · 추락 ' + game.stats.falls + '회';
+    const jq = (cfg.jump.quizzes || []).length;
+    els.resultMeta.textContent = '도전 ' + mmss(game.stats.jumpTime) + ' · 추락 ' + game.stats.falls + '회' +
+      (jq ? ' · 정복 퀴즈 ' + (game.stats.jumpCorrect || 0) + '/' + jq : '');
     if (done && game.certData) { // 정복 증명서: 1000층, 600층까지 시간 + 정복 도전 시간
       game.certData.floors = 1000;
       game.certData.jumpTime = game.stats.jumpTime;
@@ -326,7 +328,9 @@ window.SF = window.SF || {};
     game.quizAnswered = false;
     SF.openQuiz(game.stepper);
     tracker.clear();
-    els.quizHead.textContent = '과학 퀴즈 ' + (game.quiz.next + 1) + '/' + game.quiz.total + ' · ' + floor + '층';
+    els.quizHead.textContent = game.jumpQuiz
+      ? '정복 퀴즈 ' + game.jumpQuiz.no + '/' + game.jumpQuiz.total + ' · ' + floor + '층'
+      : '과학 퀴즈 ' + (game.quiz.next + 1) + '/' + game.quiz.total + ' · ' + floor + '층';
     els.quizQ.textContent = q.q;
     els.quizChoices.textContent = '';
     q.choices.forEach((c, i) => {
@@ -346,19 +350,22 @@ window.SF = window.SF || {};
   function closeQuiz() {
     els.quiz.classList.add('hidden');
     game.quizQ = null;
+    game.jumpQuiz = null;
     game.state = 'playing';
   }
   // 보기 고르기: 정답/오답과 해설을 보여 주고 [계속 오르기]를 기다린다 (오답 벌칙 없음, 점수만 못 받음)
   game.answer = function (choice) {
     if (game.state !== 'quiz' || game.quizAnswered) return;
     game.quizAnswered = true;
-    const r = SF.answerQuiz(game.quiz, game.quizFloor, choice);
+    // 정복 퀴즈(800·1000층)는 config.jump.quizzes의 고정 문제: 시트 문제 순서와 따로 센다
+    const r = game.jumpQuiz ? SF.answerJumpQuiz(game.jump, game.quizQ, game.quizFloor, choice) : SF.answerQuiz(game.quiz, game.quizFloor, choice);
+    if (game.jumpQuiz && r.correct) game.stats.jumpCorrect = (game.stats.jumpCorrect || 0) + 1;
     [...els.quizChoices.children].forEach((b, i) => {
       b.disabled = true;
       if (i === r.answer) b.classList.add('right');
       else if (i === choice) b.classList.add('wrong');
     });
-    els.quizVerdict.textContent = r.correct ? '정답! +' + cfg.score.perCorrect + '점' : '아쉬워요. 정답은 ' + LETTERS[r.answer];
+    els.quizVerdict.textContent = r.correct ? (game.jumpQuiz ? '정답!' : '정답! +' + cfg.score.perCorrect + '점') : '아쉬워요. 정답은 ' + LETTERS[r.answer];
     els.quizVerdict.className = 'quiz-verdict ' + (r.correct ? 'right' : 'wrong');
     els.quizExplain.textContent = r.explain;
     els.quizResult.hidden = false;
@@ -449,7 +456,7 @@ window.SF = window.SF || {};
       game.world = new SF.World(game.level.grid, cfg);
       game.map = { byRow: new Map() };
       renderer.setLevel(game.level);
-      game.jump = { top: game.level.topFloor };
+      game.jump = { top: game.level.topFloor, quizDone: new Set() };
     }
     if (game.crumbles && game.crumbles !== game.stepSaved.crumbles) SF.restoreCrumbles(game.crumbles, game.level);
     game.crumbles = SF.createCrumbleState(game.level);
@@ -460,6 +467,9 @@ window.SF = window.SF || {};
     game.gustIntroDone = false;
     if (practice) game.practiceFrom = cfg.totalFloors + 1;
     game.stats.jumpTime = 0;
+    game.stats.jumpCorrect = 0;
+    game.jump.quizDone = new Set(); // 정복 퀴즈는 도전할 때마다 다시
+    game.jumpQuiz = null;
     game.bot = false;
     game.popups.length = 0;
     game.particles.length = 0;
@@ -700,6 +710,11 @@ window.SF = window.SF || {};
       if (game.onFloor) game.onFloor(f);
     }
     if (f > game.stats.bestFloor) game.stats.bestFloor = f;
+    // 정복 퀴즈 층(800·1000층)에 처음 서면 문제부터 (1000층은 문제를 풀고 나서 정복)
+    if (game.state === 'playing' && p.grounded && !p.rope) {
+      const jq = SF.jumpQuizAt(game.jump, cfg, f);
+      if (jq) { game.jumpQuiz = jq; openQuiz(jq.q, f); return; }
+    }
     if (game.state === 'playing' && p.grounded && f >= game.jump.top) finishJump(f);
   }
 
