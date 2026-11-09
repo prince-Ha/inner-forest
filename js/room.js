@@ -4,8 +4,8 @@
 //  - 창을 닫거나 연결이 끊기면 onDisconnect로 내 정보가 지워진다. 처음 화면으로 가도 지운다
 //  - 퀴즈·구글 시트 코드와는 따로 돌아간다
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import { getDatabase, ref, set, update, remove, onDisconnect, serverTimestamp,
-  onChildAdded, onChildChanged, onChildRemoved }
+import { getDatabase, ref, set, remove, onDisconnect, serverTimestamp,
+  onChildAdded, onChildChanged, onChildRemoved, onValue }
   from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js';
 
 const SF = window.SF;
@@ -37,7 +37,7 @@ function watch(room) {
     if (snap.key === myId) return;
     const v = snap.val() || {};
     const o = others.get(snap.key) || { y: null, label: null, labelKey: '' };
-    o.nick = cleanNick(v.nick) || '친구';
+    o.nick = cleanNick(v.nick);
     o.floor = Math.max(1, Number(v.floor) || 1);
     o.charId = v.charId;
     others.set(snap.key, o);
@@ -91,6 +91,7 @@ SF.drawGhosts = function (ctx, v) {
   const onFloor = new Map(); // 층마다 지금까지 그린 사람 수 → 같은 발판이면 다음 칸, 칸이 모자라면 반 칸씩 비켜서
   ctx.save();
   for (const [id, o] of others) {
+    if (!o.nick) continue; // 이름이 없는 반쪽 정보(예전 버전이 남긴 것)는 안 그린다
     const t = treadAt(v.level, o.floor);
     const targetY = (o.floor - 1) * CS;
     o.y = o.y == null ? targetY : o.y + (targetY - o.y) * Math.min(1, dt * 10); // 층이 바뀌면 부드럽게 따라감
@@ -121,18 +122,37 @@ function leave() {
   remove(r).catch(() => {});
 }
 
+// 내 정보를 통째로 저장 (닉네임·캐릭터·층). 층만 고치면(update) 연결이 끊겼다 다시 붙었을 때
+// 서버가 지운 자리에 층만 남은 반쪽 정보가 생겨서 친구 화면에 이름 없이 '친구'로 보였다 → 항상 전부 쓴다
+function save() {
+  if (!me) return;
+  set(me.ref, { nick: me.nick, floor: me.floor, state: 'climb', charId: SF.game.charId || '', t: serverTimestamp() })
+    .catch((e) => console.warn('방 저장 실패', e));
+}
+// 끊기면 지우기를 먼저 걸어 두고 저장 (저장만 되고 안 지워지는 일이 없게)
+function register() {
+  if (!me) return;
+  onDisconnect(me.ref).remove().then(save).catch((e) => console.warn('방 입장 저장 실패', e));
+}
+
 function join(name) {
   leave();
   const room = ROOM;
   const nick = cleanNick(name);
   if (!db || !nick) return;
-  const r = ref(db, 'rooms/' + room + '/players/' + myId);
-  me = { room, nick, ref: r };
-  // 끊기면 지우기를 먼저 걸어 두고 저장 (저장만 되고 안 지워지는 일이 없게)
-  onDisconnect(r).remove()
-    .then(() => set(r, { nick, floor: 1, state: 'climb', charId: SF.game.charId || '', t: serverTimestamp() }))
-    .catch((e) => console.warn('방 입장 저장 실패', e));
+  me = { room, nick, floor: 1, ref: ref(db, 'rooms/' + room + '/players/' + myId) };
+  register();
   watch(room);
+}
+
+// 휴대폰이 잠깐 잠들었다 깨는 등 연결이 다시 붙으면: 서버가 나를 지웠을 수 있으니 다시 등록하고 다시 저장
+if (db) {
+  let wasConnected = false;
+  onValue(ref(db, '.info/connected'), (snap) => {
+    const on = snap.val() === true;
+    if (on && wasConnected === false && me) register();
+    wasConnected = on;
+  });
 }
 
 const game = SF && SF.game;
@@ -151,7 +171,8 @@ if (game) {
   // 층이 바뀔 때만 저장
   game.onFloor = function (floor) {
     if (!me) return;
-    update(me.ref, { floor, t: serverTimestamp() }).catch(() => {});
+    me.floor = floor;
+    save();
   };
 }
 

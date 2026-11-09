@@ -186,12 +186,16 @@ window.SF = window.SF || {};
   }
 
   // 이번 판이 기록에 남지 않는가 (테스트 모드, 구간 연습)
-  const notRecorded = () => game.testMode || !!game.practiceFrom || !!game.jump; // 1000층 도전은 아직 기록 안 함 (3단계에서)
+  const notRecorded = () => game.testMode || !!game.practiceFrom;
   // 판이 끝날 때(완주·시간 종료·그만두기) 기록을 만들어 구글 시트로 보낸다 (test 표시가 있으면 안 보냄)
   function recordRun(finished, quit) {
     if (!game.student) return null;
+    // 1000층 도전 중이면 600층은 이미 완주. 정복 퀴즈 결과와 정복 여부도 같이 보낸다
+    const inJump = !!game.jump;
     game.lastRecord = SF.makeRecord({ student: game.student, charId: game.charId, stats: game.stats, quiz: game.quiz,
-      finished, quit, test: notRecorded(), runId: game.runId }, cfg, new Date());
+      finished: finished || inJump, quit, test: notRecorded(), runId: game.runId,
+      conquered: inJump && game.stats.bestFloor >= 1000,
+      jumpCorrect: inJump ? game.stats.jumpCorrect || 0 : 0, jumpWrong: inJump ? game.stats.jumpWrong || 0 : 0 }, cfg, new Date());
     if (game.onRecord) game.onRecord(game.lastRecord);
     return game.lastRecord;
   }
@@ -247,6 +251,7 @@ window.SF = window.SF || {};
       game.certData.jumpTime = game.stats.jumpTime;
     }
     say(done ? game.talk.line('finish') : '여기까지!', 3);
+    recordRun(true, false); // 도전 기록 보내기 (연습·테스트는 안 보냄)
     if (!done) { sound.play('finish'); return; }
     // 축하 화면이 결과 상자 위를 덮었다가, 누르거나 시간이 지나면 걷힌다
     sound.unlock();
@@ -359,6 +364,7 @@ window.SF = window.SF || {};
     // 정복 퀴즈(800·1000층)는 config.jump.quizzes의 고정 문제: 시트 문제 순서와 따로 센다
     const r = game.jumpQuiz ? SF.answerJumpQuiz(game.jump, game.quizQ, game.quizFloor, choice) : SF.answerQuiz(game.quiz, game.quizFloor, choice);
     if (game.jumpQuiz && r.correct) game.stats.jumpCorrect = (game.stats.jumpCorrect || 0) + 1;
+    if (game.jumpQuiz && !r.correct) game.stats.jumpWrong = (game.stats.jumpWrong || 0) + 1;
     [...els.quizChoices.children].forEach((b, i) => {
       b.disabled = true;
       if (i === r.answer) b.classList.add('right');
@@ -467,6 +473,9 @@ window.SF = window.SF || {};
     if (practice) game.practiceFrom = cfg.totalFloors + 1;
     game.stats.jumpTime = 0;
     game.stats.jumpCorrect = 0;
+    game.stats.jumpWrong = 0;
+    // 도전은 600층 기록과 따로 저장되게 새 판 번호 (같은 번호면 시트가 중복으로 보고 무시한다)
+    if (!practice) game.runId = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
     game.jump.quizDone = new Set(); // 정복 퀴즈는 도전할 때마다 다시
     game.jumpQuiz = null;
     game.bot = false;

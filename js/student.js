@@ -50,7 +50,7 @@ window.SF = window.SF || {};
   SF.makeRecord = function (run, cfg, now) {
     const s = run.stats;
     const score = SF.computeScore({ bestFloor: s.bestFloor, finished: !!run.finished, climbTime: s.climbTime,
-      correct: run.quiz.correct, maxCombo: s.maxCombo }, cfg);
+      correct: run.quiz.correct + (run.jumpCorrect || 0), maxCombo: s.maxCombo }, cfg);
     return {
       id: SF.studentId(run.student, cfg),
       name: cleanName(run.student.name),
@@ -61,14 +61,16 @@ window.SF = window.SF || {};
       finished: !!run.finished,
       climbTime: s.climbTime,
       totalTime: s.totalTime,
-      correct: run.quiz.correct,
-      wrong: run.quiz.wrong,
+      correct: run.quiz.correct + (run.jumpCorrect || 0), // 정복 퀴즈(800·1000층)도 함께
+      wrong: run.quiz.wrong + (run.jumpWrong || 0),
       falls: s.falls,
       maxCombo: s.maxCombo,
       score: score.total,
       quit: !!run.quit,
       test: !!run.test,
       runId: run.runId || '', // 판 번호: 같은 판이 두 번 저장되지 않게
+      conquered: !!run.conquered, // 1000층 정복
+      jumpTime: s.jumpTime == null ? null : s.jumpTime, // 1000층 도전에 걸린 시간 (도전 안 했으면 null)
       date: now.toISOString(),
     };
   };

@@ -1551,6 +1551,76 @@
     ok(!SFS.better(goodRec(), goodRec()), 'not better than itself');
   });
 
+  // ---------------------------------------------------------------- 1000층 도전 기록 (시트)
+  test('server: 1000층 challenge records are accepted up to 1000, conquerors rank first', () => {
+    eq(SFS.RULES.conquerFloor, CFG.jump.topFloor, 'top floor matches the game');
+    eq(SFS.RULES.jumpQuizFloors.join(','), CFG.jump.quizzes.map((q) => q.floor).join(','), 'jump quiz floors match the game');
+    eq(SFS.quizzesUpTo(800), 31, '30 + 800층 quiz');
+    eq(SFS.quizzesUpTo(1000), 32, '30 + 800·1000층 quizzes');
+    eq(SFS.checkRecord(goodRec({ bestFloor: 850, jumpTime: 300 })), null, 'finished 600, climbed on to 850');
+    eq(SFS.checkRecord(goodRec({ bestFloor: 1000, conquered: true, jumpTime: 845, correct: 25, wrong: 7 })), null, 'conquered');
+    ok(SFS.checkRecord(goodRec({ bestFloor: 1001 })), 'above 1000');
+    ok(SFS.checkRecord(goodRec({ finished: false, bestFloor: 700 })), 'above 600 without finishing');
+    ok(SFS.checkRecord(goodRec({ bestFloor: 990, conquered: true })), 'conquered below 1000');
+    ok(SFS.checkRecord(goodRec({ bestFloor: 1000, conquered: true, jumpTime: -1 })), 'bad challenge time');
+    ok(SFS.checkRecord(goodRec({ bestFloor: 700, correct: 24, wrong: 7 })), 'too many quizzes for 700 (no jump quiz yet)');
+    const c = goodRec({ bestFloor: 1000, conquered: true, score: 1 });
+    ok(SFS.better(c, goodRec({ bestFloor: 990, score: 99999 })), 'conqueror beats a higher score');
+    const g900 = goodRec({ bestFloor: 900 });
+    g900.score = SFS.scoreOf(g900);
+    const g600 = goodRec();
+    g600.score = SFS.scoreOf(g600);
+    ok(SFS.better(g900, g600), 'more floors (higher score) beats a plain finish');
+  });
+
+  test('sheet server: challenge record keeps the first conquest date, old sheets get the new columns', () => withGoogle((g) => {
+    const rank = g.sheets.get('랭킹');
+    // 예전 설치본: 머리줄 12칸
+    rank.data[0] = rank.data[0].slice(0, 12);
+    setup();
+    eq(rank.data[0][12] + ',' + rank.data[0][13], '정복,정복일시', 'new header cells');
+    eq(g.sheets.get('기록').data[0].slice(-2).join(','), '정복,도전시간(초)');
+    let r = sPost({ action: 'record', record: goodRec({ runId: 'a600' }) });
+    ok(r.ok && r.best, 'finished 600 first');
+    r = sPost({ action: 'record', record: goodRec({ runId: 'a1000', bestFloor: 1000, conquered: true, jumpTime: 845, correct: 25, wrong: 7 }) });
+    ok(r.ok && r.best && r.rank.school === 1, JSON.stringify(r));
+    const row = rank.data[1];
+    eq(row[5], 1000, 'best floor 1000');
+    eq(row[12], true, 'conquered');
+    ok(row[13], 'conquered at');
+    const first = row[13];
+    sPost({ action: 'record', record: goodRec({ runId: 'a1000b', bestFloor: 1000, conquered: true, jumpTime: 500, correct: 26, wrong: 6, maxCombo: 90 }) });
+    eq(rank.data[1][13], first, 'first conquest date kept');
+    const b = sGet('board');
+    ok(b.ranking[0].conquered && b.ranking[0].bestFloor === 1000, 'board says conquered');
+    const fin = sPost({ action: 'finishers', password: '6666' });
+    ok(fin.finishers[0].conquered, 'teacher list shows conquered');
+    ok(sPost({ action: 'message', id: '3-2-홍길동', name: '홍길동', classNo: 2, text: '정복했다!' }).ok, 'one-liner still from 600 finishers');
+  }));
+
+  test('board: 정복 and floors above 600 are labelled', () => {
+    const rows = SF.boardRows([
+      { id: 'a', name: '가', classNo: 1, bestFloor: 1000, finished: true, conquered: true, score: 30000 },
+      { id: 'b', name: '나', classNo: 1, bestFloor: 820, finished: true, score: 25000 },
+      { id: 'c', name: '다', classNo: 1, bestFloor: 600, finished: true, score: 20000 },
+      { id: 'd', name: '라', classNo: 1, bestFloor: 300, finished: false, score: 3000 },
+    ], { tab: 'school' });
+    eq(rows.map((r) => r.label).join(','), '정복,820층,완주,300층');
+    eq(rows.filter((r) => r.finished).length, 3);
+  });
+
+  test('record: a 1000층 challenge record carries conquest, time and both quiz parts', () => {
+    const base = RUN();
+    const r = SF.makeRecord(RUN({
+      stats: Object.assign({}, base.stats, { bestFloor: 1000, jumpTime: 845 }), conquered: true, jumpCorrect: 2, jumpWrong: 0,
+    }), CFG, new Date());
+    ok(r.conquered && r.jumpTime === 845 && r.bestFloor === 1000, JSON.stringify(r));
+    eq(r.correct, base.quiz.correct + 2);
+    eq(r.score, SFS.scoreOf(r), 'game and sheet agree on the score');
+    eq(SFS.checkRecord(Object.assign({}, r, { date: undefined })), null, 'the sheet accepts it');
+    eq(SF.makeRecord(base, CFG, new Date()).jumpTime, null, 'no challenge → no challenge time');
+  });
+
   test('server: one-liners are cleaned', () => {
     eq(SFS.cleanMessage('  드디어 완주!  ', []).text, '드디어 완주!');
     ok(!SFS.cleanMessage('   ', []).ok, 'empty');

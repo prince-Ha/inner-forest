@@ -158,9 +158,10 @@ window.SF = window.SF || {};
       return;
     }
     const rows = SF.boardRows(d.ranking, { tab: board.tab, classNo: board.me && board.me.classNo, id: board.me && board.me.id });
-    const done = rows.filter((r) => r.label === '완주').length;
+    const done = rows.filter((r) => r.finished).length;
+    const won1000 = rows.filter((r) => r.conquered).length;
     const where = board.tab === 'class' ? cfg.school.grade + '학년 ' + board.me.classNo + '반' : cfg.school.grade + '학년 전체';
-    say('board-note', rows.length ? where + ' · ' + rows.length + '명 · 완주 ' + done + '명' : '아직 기록이 없어요. 첫 번째 주인공이 되어 보세요!');
+    say('board-note', rows.length ? where + ' · ' + rows.length + '명 · 완주 ' + done + '명' + (won1000 ? ' · 정복 ' + won1000 + '명' : '') : '아직 기록이 없어요. 첫 번째 주인공이 되어 보세요!');
     let mine = null;
     for (const r of rows) {
       const li = el('li', 'b-row' + (r.me ? ' me' : ''));
@@ -168,7 +169,7 @@ window.SF = window.SF || {};
       const name = el('span', 'b-name', r.name);
       if (board.tab === 'school') name.appendChild(el('small', '', r.classNo + '반'));
       li.appendChild(name);
-      li.appendChild(el('span', 'b-floor' + (r.label === '완주' ? ' done' : ''), r.label));
+      li.appendChild(el('span', 'b-floor' + (r.conquered ? ' conquer' : r.finished ? ' done' : ''), r.label));
       li.appendChild(el('span', 'b-score', won(r.score)));
       list.appendChild(li);
       if (r.me) mine = li;
@@ -200,13 +201,15 @@ window.SF = window.SF || {};
   function showFinishers() {
     teacherCall(() => SF.sheet.finishers(teacherPw), (res) => {
       const groups = SF.finishersByClass(res.finishers);
-      say('t-note', res.finishers.length ? '완주 ' + res.finishers.length + '명 (반별, 먼저 완주한 순)' : '아직 완주한 학생이 없어요.', 'ok');
+      const won1000 = res.finishers.filter((s) => s.conquered).length;
+      say('t-note', res.finishers.length ? '완주 ' + res.finishers.length + '명' + (won1000 ? ' · 그중 1000층 정복 ' + won1000 + '명 ★' : '') + ' (반별, 먼저 완주한 순)' : '아직 완주한 학생이 없어요.', 'ok');
       const box = $('t-list');
       for (const g of groups) {
         box.appendChild(el('h4', '', g.classNo + '반 · ' + g.students.length + '명'));
         const ul = el('ul');
         for (const s of g.students) {
-          ul.appendChild(el('li', '', s.name + ' — ' + md(s.finishedAt) + ' 완주 · 등반 ' + mmss(s.climbTime) + ' · ' + won(s.score) + '점'));
+          ul.appendChild(el('li', '', s.name + ' — ' + md(s.finishedAt) + ' 완주 · 등반 ' + mmss(s.climbTime) + ' · ' + won(s.score) + '점' +
+            (s.conquered ? ' · ★ 1000층 정복 ' + md(s.conqueredAt) : s.bestFloor > 600 ? ' · 도전 ' + s.bestFloor + '층' : '')));
         }
         box.appendChild(ul);
       }

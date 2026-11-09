@@ -112,7 +112,9 @@ window.SF = window.SF || {};
     const list = o.tab === 'class' ? ranking.filter((r) => o.classNo && r.classNo === Number(o.classNo)) : ranking;
     return list.map((r, i) => ({
       rank: i + 1, name: r.name, classNo: r.classNo, score: r.score,
-      label: r.finished ? '완주' : r.bestFloor + '층',
+      // 1000층 정복 → '정복', 600층 넘게 오른 완주자 → 그 층, 600층 완주 → '완주'
+      label: r.conquered ? '정복' : r.finished ? (r.bestFloor > 600 ? r.bestFloor + '층' : '완주') : r.bestFloor + '층',
+      finished: !!r.finished, conquered: !!r.conquered,
       me: !!o.id && r.id === o.id,
     }));
   };

@@ -15,7 +15,9 @@ var SFS = (function () {
   'use strict';
 
   var RULES = {
-    totalFloors: 600,
+    totalFloors: 600,      // 완주 층
+    conquerFloor: 1000,    // 1000층 도전(점프 숲) 꼭대기 = 정복
+    jumpQuizFloors: [800, 1000], // 점프 숲 정복 퀴즈 층 (게임 config.jump.quizzes)
     timeLimitSec: 1800,
     quiz: { firstFloor: 10, every: 20, count: 30 },
     score: { perFloor: 10, finishBonus: 3000, perSecondLeft: 5, perCorrect: 200, perCombo: 10 },
@@ -29,8 +31,8 @@ var SFS = (function () {
     '문제': ['번호', '문제', '보기A', '보기B', '보기C', '보기D', '정답', '해설', '사용'],
     '말풍선': ['상황', '문구', '사용', '캐릭터'],
     '기록': ['기록일시', '학생ID', '이름', '학년', '반', '캐릭터', '최고층', '완주', '등반시간(초)', '전체시간(초)',
-      '정답', '오답', '추락', '최고콤보', '점수', '그만둠', '판번호'],
-    '랭킹': ['학생ID', '이름', '학년', '반', '캐릭터', '최고층', '완주', '등반시간(초)', '점수', '정답', '완주일시', '기록일시'],
+      '정답', '오답', '추락', '최고콤보', '점수', '그만둠', '판번호', '정복', '도전시간(초)'],
+    '랭킹': ['학생ID', '이름', '학년', '반', '캐릭터', '최고층', '완주', '등반시간(초)', '점수', '정답', '완주일시', '기록일시', '정복', '정복일시'],
     '한마디': ['번호', '작성일시', '학생ID', '이름', '반', '한마디', '숨김'],
     '설정': ['항목', '값', '설명'],
   };
@@ -48,11 +50,13 @@ var SFS = (function () {
   var isInt = function (v) { return typeof v === 'number' && Math.floor(v) === v && isFinite(v); };
   var isNum = function (v) { return typeof v === 'number' && isFinite(v); };
 
-  // 그 층까지 지나는 퀴즈 수 (10·30·50…층)
+  // 그 층까지 지나는 퀴즈 수 (10·30·50…층 + 점프 숲의 800·1000층)
   function quizzesUpTo(floor) {
     var Q = RULES.quiz;
     if (floor < Q.firstFloor) return 0;
-    return Math.min(Q.count, Math.floor((floor - Q.firstFloor) / Q.every) + 1);
+    var n = Math.min(Q.count, Math.floor((Math.min(floor, RULES.totalFloors) - Q.firstFloor) / Q.every) + 1);
+    RULES.jumpQuizFloors.forEach(function (f) { if (floor >= f) n++; });
+    return n;
   }
 
   // 점수 (게임의 SF.computeScore 와 같은 공식)
@@ -71,13 +75,16 @@ var SFS = (function () {
     if (!name || letters(name) > RULES.nameMax) return '이름이 이상해요';
     if (!isInt(r.grade) || r.grade < 1 || r.grade > 6) return '학년이 이상해요';
     if (!isInt(r.classNo) || r.classNo < 1 || r.classNo > RULES.maxClass) return '반이 이상해요';
-    if (!isInt(r.bestFloor) || r.bestFloor < 1 || r.bestFloor > RULES.totalFloors) return '층수가 이상해요';
+    if (!isInt(r.bestFloor) || r.bestFloor < 1 || r.bestFloor > RULES.conquerFloor) return '층수가 이상해요';
+    if (r.bestFloor > RULES.totalFloors && !r.finished) return '600층을 완주하지 않고 더 올라갔어요';
     if (!isNum(r.climbTime) || r.climbTime < 0 || (RULES.timeLimitSec > 0 && r.climbTime > RULES.timeLimitSec + 5)) return '등반 시간이 이상해요';
     if (!isNum(r.totalTime) || r.totalTime < 0) return '전체 시간이 이상해요';
     if (r.finished) {
-      if (r.bestFloor !== RULES.totalFloors) return '정상에 닿지 않았는데 완주로 되어 있어요';
+      if (r.bestFloor < RULES.totalFloors) return '정상에 닿지 않았는데 완주로 되어 있어요';
       if (r.climbTime < RULES.minFinishSec) return '너무 빨리 완주했어요';
     }
+    if (r.conquered && (r.bestFloor !== RULES.conquerFloor || !r.finished)) return '1000층에 닿지 않았는데 정복으로 되어 있어요';
+    if (r.jumpTime != null && (!isNum(r.jumpTime) || r.jumpTime < 0)) return '도전 시간이 이상해요';
     if (!isInt(r.correct) || !isInt(r.wrong) || r.correct < 0 || r.wrong < 0) return '퀴즈 수가 이상해요';
     if (r.correct + r.wrong > quizzesUpTo(r.bestFloor)) return '오른 층보다 퀴즈를 많이 풀었어요';
     if (!isInt(r.maxCombo) || r.maxCombo < 0 || r.maxCombo > RULES.totalFloors) return '콤보가 이상해요';
@@ -85,8 +92,9 @@ var SFS = (function () {
     return null;
   }
 
-  // 랭킹: 완주한 쪽 → 점수 높은 쪽 → 등반 시간 짧은 쪽
+  // 랭킹: 1000층 정복한 쪽 → 완주한 쪽 → 점수 높은 쪽 → 등반 시간 짧은 쪽
   function better(a, b) {
+    if (!!a.conquered !== !!b.conquered) return !!a.conquered;
     if (!!a.finished !== !!b.finished) return !!a.finished;
     if (a.score !== b.score) return a.score > b.score;
     return a.climbTime < b.climbTime;
@@ -280,6 +288,10 @@ function setup() {
     if (sh.getLastRow() === 0) {
       sh.appendRow(SFS.HEADERS[name]);
       sh.setFrozenRows(1);
+    } else {
+      // 예전에 설치한 탭: 머리줄에 없는 새 칸 이름만 뒤에 더한다 (정복·정복일시 등)
+      var head = sh.getDataRange().getValues()[0];
+      SFS.HEADERS[name].forEach(function (h, c) { if (String(head[c] == null ? '' : head[c]).trim() === '') sh.getRange(1, c + 1).setValue(h); });
     }
   });
   var seed = function (name, rows) {
@@ -302,14 +314,15 @@ function setup() {
 }
 
 // 랭킹 탭 한 줄 ↔ 기록
-var RANK_COLS = 12;
-function rankRow_(r, finishedAt, now) {
-  return [r.id, r.name, r.grade, r.classNo, r.charId, r.bestFloor, r.finished, r.climbTime, r.score, r.correct, finishedAt || '', now];
+var RANK_COLS = 14;
+function rankRow_(r, finishedAt, now, conqueredAt) {
+  return [r.id, r.name, r.grade, r.classNo, r.charId, r.bestFloor, r.finished, r.climbTime, r.score, r.correct, finishedAt || '', now,
+    !!r.conquered, conqueredAt || ''];
 }
 function rankObj_(row) {
   return { id: String(row[0]), name: String(row[1]), grade: Number(row[2]), classNo: Number(row[3]), charId: String(row[4]),
     bestFloor: Number(row[5]), finished: yes_(row[6]), climbTime: Number(row[7]), score: Number(row[8]), correct: Number(row[9]),
-    finishedAt: iso_(row[10]) };
+    finishedAt: iso_(row[10]), conquered: yes_(row[12]), conqueredAt: iso_(row[13]) };
 }
 function sortedRanking_() {
   return rows_('랭킹').slice(1).filter(function (r) { return r[0]; }).map(rankObj_)
@@ -328,21 +341,22 @@ function saveRecord_(rec) {
   r.score = SFS.scoreOf(r); // 점수는 다시 계산 (게임이 보낸 점수는 믿지 않음)
   var now = new Date();
   sheet_('기록').appendRow([now, r.id, r.name, r.grade, r.classNo, r.charId, r.bestFloor, r.finished, r.climbTime, r.totalTime,
-    r.correct, r.wrong, r.falls, r.maxCombo, r.score, !!r.quit, r.runId]);
+    r.correct, r.wrong, r.falls, r.maxCombo, r.score, !!r.quit, r.runId, !!r.conquered, r.jumpTime == null ? '' : r.jumpTime]);
   var sh = sheet_('랭킹');
   var rows = sh.getDataRange().getValues();
   var at = -1;
   for (var i = 1; i < rows.length; i++) if (String(rows[i][0]) === r.id) { at = i; break; }
   var best = false;
   if (at < 0) {
-    sh.appendRow(rankRow_(r, r.finished ? now : '', now));
+    sh.appendRow(rankRow_(r, r.finished ? now : '', now, r.conquered ? now : ''));
     best = true;
   } else {
     var old = rankObj_(rows[at]);
     if (SFS.better(r, old)) {
       // 완주일시는 처음 완주한 날을 남긴다 (완주자 목록용)
       var firstFinish = old.finished ? rows[at][10] : (r.finished ? now : '');
-      sh.getRange(at + 1, 1, 1, RANK_COLS).setValues([rankRow_(r, firstFinish, now)]);
+      var firstConquer = old.conquered ? rows[at][13] : (r.conquered ? now : ''); // 정복일시도 처음 정복한 날
+      sh.getRange(at + 1, 1, 1, RANK_COLS).setValues([rankRow_(r, firstFinish, now, firstConquer)]);
       best = true;
     }
   }
