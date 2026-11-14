@@ -74,6 +74,22 @@ window.SF = window.SF || {};
         }
         return res;
       },
+      // 앱을 닫거나 화면이 꺼지는 순간의 기록: 결과를 기다리지 않고 보내고(keepalive: 페이지가 닫혀도 전송은 계속된다),
+      // 못 보내거나 확인 못 한 것은 기기에 모아 두었다가 다음에 열 때 다시 보낸다 (같은 판 번호는 시트가 한 번만 저장)
+      leave(record) {
+        if (!enabled || !record || record.test) return false;
+        const list = load().filter((r) => r.runId !== record.runId);
+        list.push(record);
+        save(list.slice(-30));
+        try {
+          Promise.resolve(doFetch(url, { method: 'POST', redirect: 'follow', keepalive: true,
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'record', record }) }))
+            .then((res) => res.json())
+            .then((j) => { if (j && (j.ok || j.error)) save(load().filter((r) => r.runId !== record.runId)); })
+            .catch(() => { /* 모아 둔 것이 다음에 다시 간다 */ });
+        } catch (_) { /* 위와 같음 */ }
+        return true;
+      },
       // 모아 둔 기록 다시 보내기 → 보낸(또는 거절된) 개수
       async flush() {
         if (!enabled) return 0;

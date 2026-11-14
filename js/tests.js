@@ -2193,6 +2193,43 @@
     ok(L.platforms.some((q) => q.row === 799 && q.rest) && L.platforms.some((q) => q.row === 999 && q.rest), 'rest platforms at 800 and 1000');
   });
 
+  // ---------------------------------------------------------------- 앱을 나갈 때 중간 기록
+  test('sheet client: leave() sends with keepalive, keeps the record until the server answers', async () => {
+    const store = fakeStore();
+    const f = fakeFetch(() => ({ ok: true, best: true }));
+    const c = SF.createSheetClient({ url: URL1, fetch: f, storage: store });
+    ok(c.leave(goodRec({ runId: 'x:s50', finished: false, quit: true, bestFloor: 50, correct: 2, wrong: 0 })), 'sent');
+    eq(f.calls.length, 1);
+    ok(f.calls[0].opt.keepalive === true, 'keepalive');
+    eq(JSON.parse(f.calls[0].opt.body).record.runId, 'x:s50');
+    eq(c.pending(), 1, 'kept at first (the page may be closed before an answer)');
+    await new Promise((r) => setTimeout(r, 20));
+    eq(c.pending(), 0, 'dropped once the server answered');
+    // 응답 전에 닫히면(서버 못 받음) 다음에 flush가 다시 보낸다
+    const off = SF.createSheetClient({ url: URL1, fetch: fakeFetch(() => { throw new Error('closed'); }), storage: store });
+    off.leave(goodRec({ runId: 'y:s70' }));
+    await new Promise((r) => setTimeout(r, 20));
+    eq(off.pending(), 1, 'still waiting for the next open');
+    const again = SF.createSheetClient({ url: URL1, fetch: fakeFetch(() => ({ ok: true })), storage: store });
+    eq(await again.flush(), 1);
+    ok(!SF.createSheetClient({ url: '', fetch: f, storage: fakeStore() }).leave(goodRec()), 'no url → nothing');
+    ok(!c.leave(goodRec({ test: true })), 'test record never');
+  });
+
+  test('sheet server: a leave snapshot does not block the real final record of the same run', () => withGoogle((g) => {
+    let r = sPost({ action: 'record', record: goodRec({ runId: 'run9:s120', finished: false, quit: true, bestFloor: 120, correct: 6, wrong: 0, climbTime: 300, maxCombo: 30 }) });
+    ok(r.ok && r.best, 'snapshot saved');
+    eq(g.sheets.get('랭킹').data[1][5], 120);
+    r = sPost({ action: 'record', record: goodRec({ runId: 'run9:s120', finished: false, quit: true, bestFloor: 120, correct: 6, wrong: 0, climbTime: 300, maxCombo: 30 }) });
+    ok(r.ok && r.duplicate, 'same snapshot twice → saved once');
+    r = sPost({ action: 'record', record: goodRec({ runId: 'run9', finished: false, quit: true, bestFloor: 260, correct: 13, wrong: 0, climbTime: 700, maxCombo: 90 }) });
+    ok(r.ok && r.best && !r.duplicate, 'the final record is not treated as a duplicate');
+    eq(g.sheets.get('랭킹').data[1][5], 260, 'ranking updated to the better one');
+    r = sPost({ action: 'record', record: goodRec({ runId: 'run9:s90', finished: false, quit: true, bestFloor: 90, correct: 4, wrong: 0, climbTime: 200, maxCombo: 20 }) });
+    ok(r.ok && !r.best, 'an older, lower snapshot never lowers the ranking');
+    eq(g.sheets.get('랭킹').data[1][5], 260);
+  }));
+
   // ---------------------------------------------------------------- runner
   // 테스트는 하나씩 차례로 (Promise를 돌려주는 테스트는 끝날 때까지 기다림)
   (async function run() {

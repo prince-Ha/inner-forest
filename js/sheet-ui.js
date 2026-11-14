@@ -108,6 +108,14 @@ window.SF = window.SF || {};
       .then(() => { btn.disabled = false; });
   }
 
+  // 앱을 닫거나 화면이 꺼지거나 다른 앱으로 넘어가는 순간: 지금까지의 최고 층을 기록으로 (600층 전에 그만둔 학생도 랭킹에)
+  function leaving() {
+    const rec = game.leaveSnapshot && game.leaveSnapshot();
+    if (rec) SF.sheet.leave(rec);
+  }
+  document.addEventListener('visibilitychange', () => { if (document.hidden) leaving(); });
+  window.addEventListener('pagehide', leaving);
+
   // ------------------------------------------------------------ 랭킹·한마디 보드
   const board = { tab: 'school', me: null, data: null, ask: 0 };
   // 보드에서 '나': 결과 화면에서는 이번 판 학생, 처음 화면에서는 입력한 이름·반

@@ -200,6 +200,20 @@ window.SF = window.SF || {};
     return game.lastRecord;
   }
 
+  // 앱을 나가는 순간(닫기·화면 잠금·다른 앱)의 중간 기록. 아직 판이 진행 중이고 지난번 보낸 것보다 더 올랐을 때만
+  // 판 번호를 달리 붙여서(…:s층수) 나중에 진짜 끝난 기록이 중복으로 무시되지 않게 한다. 랭킹은 더 좋을 때만 바뀐다
+  game.leaveSnapshot = function () {
+    if (!game.student || notRecorded() || game.stats.bestFloor < 2) return null;
+    const live = game.state === 'playing' || game.state === 'quiz' || (game.state === 'paused' && game.pausedFrom);
+    if (!live || game.snapshotFloor >= game.stats.bestFloor) return null;
+    const inJump = !!game.jump;
+    game.snapshotFloor = game.stats.bestFloor;
+    const rec = SF.makeRecord({ student: game.student, charId: game.charId, stats: game.stats, quiz: game.quiz,
+      finished: inJump, quit: true, test: false, runId: game.runId + ':s' + game.stats.bestFloor,
+      conquered: false, jumpCorrect: inJump ? game.stats.jumpCorrect || 0 : 0, jumpWrong: inJump ? game.stats.jumpWrong || 0 : 0 }, cfg, new Date());
+    return rec;
+  };
+
   // 결과 상자: 완주(finished) 또는 시간 종료(timeup). 점수 내역 표와 시간·추락
   function showResult(finished) {
     const s = game.stats;
@@ -415,6 +429,7 @@ window.SF = window.SF || {};
     game.quiz = SF.createQuizRun(game.bank || SF.QUESTIONS, cfg, SF.makeRng((Math.random() * 4294967296) >>> 0));
     // 판 번호: 기록이 두 번 저장되지 않게 (와이파이가 끊겨 다시 보낼 때도 같은 번호)
     game.runId = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+    game.snapshotFloor = 0; // 이 판에서 중간 기록으로 보낸 최고 층
     game.quizQ = null;
     els.quiz.classList.add('hidden');
     game.combo = SF.createCombo();
@@ -475,7 +490,7 @@ window.SF = window.SF || {};
     game.stats.jumpCorrect = 0;
     game.stats.jumpWrong = 0;
     // 도전은 600층 기록과 따로 저장되게 새 판 번호 (같은 번호면 시트가 중복으로 보고 무시한다)
-    if (!practice) game.runId = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+    if (!practice) { game.runId = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8); game.snapshotFloor = 0; }
     game.jump.quizDone = new Set(); // 정복 퀴즈는 도전할 때마다 다시
     game.jumpQuiz = null;
     game.bot = false;
