@@ -220,12 +220,12 @@ window.SF = window.SF || {};
 window.SF = window.SF || {};
 (function (SF) {
   'use strict';
-  // 점프 숲 퀴즈 층: 쉼터(40층마다) 640·680·…·1000. config.jump.quizEvery 로 간격을 바꾼다 (0이면 고정 문제 층만)
+  // 점프 숲 퀴즈 층: 고정 문제 층(800·1000) + quizFrom층부터 quizEvery층마다 (쉼터가 있는 40의 배수 층이어야 한다). quizEvery 0이면 고정 문제 층만
   SF.jumpQuizFloors = function (cfg) {
     const J = cfg.jump || {};
     const fixed = (J.quizzes || []).map((x) => x.floor);
     const out = new Set(fixed);
-    if (J.quizEvery > 0) for (let f = cfg.totalFloors + J.quizEvery; f <= J.topFloor; f += J.quizEvery) out.add(f);
+    if (J.quizEvery > 0) for (let f = J.quizFrom || cfg.totalFloors + J.quizEvery; f <= J.topFloor; f += J.quizEvery) out.add(f);
     return [...out].sort((a, b) => a - b);
   };
   // 한 번의 도전에서 층마다 낼 문제 정하기: 고정 문제 + 나머지는 문제은행에서 (1~600층에서 안 푼 문제부터, 모자라면 다시)

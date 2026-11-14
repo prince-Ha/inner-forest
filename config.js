@@ -181,11 +181,13 @@ window.GAME_CONFIG = {
       { untilFloor: 900, width: [1, 2], minGap: 1, twoRowChance: 0.7, hazards: { spikeBall: 0.25, monkey: 0.2, acorn: 0.3, rust: 0.3 }, crumble: 0.3, gust: true, speed: 1.15 },
       { untilFloor: 1000, width: [1, 2], minGap: 1, twoRowChance: 0.75, hazards: { spikeBall: 0.3, monkey: 0.3, acorn: 0.35, rust: 0.4 }, crumble: 0.4, gust: true, speed: 1.3, double: 0.35 },
     ],
-    // 쉼터(40층마다)에서 문제가 나와요: 640·680·…·1000층. 800·1000층은 위 고정 문제, 나머지는 시트 문제은행에서. 0이면 고정 문제 층에서만
-    quizEvery: 40,
+    // 쉼터(40의 배수 층)에서 문제가 나와요: quizFrom층부터 quizEvery층마다 → 720·800·880·960층 + 1000층. 800·1000층은 위 고정 문제, 나머지는 시트 문제은행에서.
+    // (40의 배수가 아닌 층은 쉼터가 없어요. quizEvery를 0으로 하면 고정 문제 층에서만)
+    quizFrom: 720,
+    quizEvery: 80,
     // 크림슨발록: 문제를 풀 때 옆에서 기다리다가, 맞히면 날아가고 틀리면 학생을 떨어뜨려요
     balrog: {
-      drop: 10,        // 틀리면 떨어지는 층수 (그 아래 가장 가까운 발판에 내려요)
+      drop: 20,        // 틀리면 떨어지는 층수 (그 아래 가장 가까운 발판에 내려요)
       fly: 'assets/balrog/fly.gif',       // 기다리다 날아갈 때 (날개 짓)
       attack: 'assets/balrog/attack.gif', // 틀린 학생을 덮칠 때
       right: ['쳇… 맞혔군. 이번엔 봐준다!', '흥, 운이 좋았다!', '다음 문제에서 두고 보자!', '오호, 제법인데? 쳇.'],

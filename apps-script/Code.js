@@ -17,7 +17,7 @@ var SFS = (function () {
   var RULES = {
     totalFloors: 600,      // 완주 층
     conquerFloor: 1000,    // 1000층 도전(점프 숲) 꼭대기 = 정복
-    jumpQuizFloors: [640, 680, 720, 760, 800, 840, 880, 920, 960, 1000], // 점프 숲 퀴즈 층 (게임 config.jump: 40층 쉼터마다 + 800·1000층)
+    jumpQuizFloors: [720, 800, 880, 960, 1000], // 점프 숲 퀴즈 층 (게임 config.jump: quizFrom 720 · quizEvery 80 + 800·1000층 고정)
     timeLimitSec: 1800,
     quiz: { firstFloor: 10, every: 20, count: 30 },
     score: { perFloor: 10, finishBonus: 3000, perSecondLeft: 5, perCorrect: 200, perCombo: 10 },
