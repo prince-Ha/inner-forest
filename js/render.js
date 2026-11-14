@@ -394,11 +394,11 @@ window.SF = window.SF || {};
         } else if (h.kind === 'acorn') {
           const ty = h.topRow * cs + 8, cx = h.col * cs + 8;
           if (visible(ty)) {
-            ctx.fillStyle = '#2f5a1c';
+            ctx.fillStyle = h.rust ? '#5a2a12' : '#2f5a1c';
             ctx.fillRect(sx(cx - 6), sy(ty + 7), 12 * z, 4 * z);
-            ctx.fillStyle = '#4f8a2e';
+            ctx.fillStyle = h.rust ? '#a8501c' : '#4f8a2e';
             ctx.fillRect(sx(cx - 4), sy(ty + 8), 8 * z, 2 * z);
-            ctx.fillStyle = '#5e3a1e';
+            ctx.fillStyle = h.rust ? '#c9692a' : '#5e3a1e';
             ctx.fillRect(sx(cx), sy(ty + 4), z, 3 * z);
           }
           const u = clock * (h.speed || 1); // 장애물 자기 시각 (빠른 구간은 빨리 감긴다)
@@ -481,14 +481,15 @@ window.SF = window.SF || {};
       for (const s of shapes) {
         if (s.kind === 'spikeBall') img(S.spikeBall[Math.floor(s.spin) % 2], s.x - 7, s.y + 7);
         else if (s.kind === 'banana') img(S.banana[Math.floor(s.spin) % 4], s.x - 4, s.y + 3);
-        else if (s.kind === 'acorn') img(S.acorn, s.x - 3, s.y + 4);
+        else if (s.kind === 'acorn') img(s.h && s.h.rust ? S.rust : S.acorn, s.x - 3, s.y + 4);
         else if (s.kind === 'acornSplat') {
           // 깨진 도토리 조각이 양옆으로 튄다
           const d = 2 + s.age * 30;
-          ctx.fillStyle = '#7a4a22';
+          const rustSplat = !!(s.h && s.h.rust);
+          ctx.fillStyle = rustSplat ? '#8a3c14' : '#7a4a22';
           ctx.fillRect(sx(s.x - d), sy(s.y + 2), 2 * z, 2 * z);
           ctx.fillRect(sx(s.x + d - 2), sy(s.y + 2), 2 * z, 2 * z);
-          ctx.fillStyle = '#c9873a';
+          ctx.fillStyle = rustSplat ? '#e08a3c' : '#c9873a';
           ctx.fillRect(sx(s.x - d / 2), sy(s.y + 3 + s.age * 10), z, z);
           ctx.fillRect(sx(s.x + d / 2), sy(s.y + 3 + s.age * 10), z, z);
         }

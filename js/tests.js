@@ -1554,16 +1554,18 @@
   // ---------------------------------------------------------------- 1000층 도전 기록 (시트)
   test('server: 1000층 challenge records are accepted up to 1000, conquerors rank first', () => {
     eq(SFS.RULES.conquerFloor, CFG.jump.topFloor, 'top floor matches the game');
-    eq(SFS.RULES.jumpQuizFloors.join(','), CFG.jump.quizzes.map((q) => q.floor).join(','), 'jump quiz floors match the game');
-    eq(SFS.quizzesUpTo(800), 31, '30 + 800층 quiz');
-    eq(SFS.quizzesUpTo(1000), 32, '30 + 800·1000층 quizzes');
+    eq(SFS.RULES.jumpQuizFloors.join(','), SF.jumpQuizFloors(CFG).join(','), 'jump quiz floors match the game');
+    eq(SFS.quizzesUpTo(640), 31, '30 + 640층 quiz');
+    eq(SFS.quizzesUpTo(800), 35, '30 + 640·680·720·760·800층 quizzes');
+    eq(SFS.quizzesUpTo(1000), 40, '30 + 10 jump quizzes');
     eq(SFS.checkRecord(goodRec({ bestFloor: 850, jumpTime: 300 })), null, 'finished 600, climbed on to 850');
     eq(SFS.checkRecord(goodRec({ bestFloor: 1000, conquered: true, jumpTime: 845, correct: 25, wrong: 7 })), null, 'conquered');
     ok(SFS.checkRecord(goodRec({ bestFloor: 1001 })), 'above 1000');
     ok(SFS.checkRecord(goodRec({ finished: false, bestFloor: 700 })), 'above 600 without finishing');
     ok(SFS.checkRecord(goodRec({ bestFloor: 990, conquered: true })), 'conquered below 1000');
     ok(SFS.checkRecord(goodRec({ bestFloor: 1000, conquered: true, jumpTime: -1 })), 'bad challenge time');
-    ok(SFS.checkRecord(goodRec({ bestFloor: 700, correct: 24, wrong: 7 })), 'too many quizzes for 700 (no jump quiz yet)');
+    ok(SFS.checkRecord(goodRec({ bestFloor: 700, correct: 24, wrong: 12 })), 'too many quizzes for 700 (30 + 640·680)');
+    eq(SFS.checkRecord(goodRec({ bestFloor: 700, correct: 27, wrong: 5 })), null, '32 quizzes by 700 (30 + 640 + 680) is fine');
     const c = goodRec({ bestFloor: 1000, conquered: true, score: 1 });
     ok(SFS.better(c, goodRec({ bestFloor: 990, score: 99999 })), 'conqueror beats a higher score');
     const g900 = goodRec({ bestFloor: 900 });
@@ -2085,7 +2087,9 @@
     }
     ok(byBand.every((n) => n > 0), 'every band has obstacles: ' + byBand.join(','));
     ok(byBand[3] > byBand[0], 'top band busier than the first: ' + byBand.join(','));
-    ok(!L.hazards.some((h) => h.row < 699 && h.kind !== 'spikeBall'), '601~700 only spike balls');
+    ok(!L.hazards.some((h) => h.row < 699 && h.kind !== 'spikeBall' && !h.rust), '601~700 only spike balls and rust drips');
+    ok(L.hazards.filter((h) => h.rust).length >= 8, 'rust drips: ' + L.hazards.filter((h) => h.rust).length);
+    ok(L.hazards.filter((h) => h.rust).every((h) => h.kind === 'acorn' && h.topRow > h.row), 'rust drips fall like acorns');
     ok(L.crumbles.length > 0 && L.crumbles.every((c) => c.row >= 699 && !safe.has(c.row)), 'cracked tiles only from 701, not on safe platforms');
     const hz = new Set(L.hazards.map((h) => h.row));
     ok(!L.crumbles.some((c) => hz.has(c.row)), 'no cracked tile on a platform that has an obstacle');
@@ -2173,24 +2177,67 @@
     ok(SF.certificateLines(CERT).join('\n').includes('완주 증명서'), '600층 stays 완주');
   });
 
-  test('jump quiz: fixed questions at 800층 and 1000층, each asked once per challenge', () => {
+  test('jump quiz: a quiz on every rest platform, fixed ones at 800층 and 1000층, each asked once per challenge', () => {
     const Q = CFG.jump.quizzes;
     eq(Q.map((x) => x.floor).join(','), '800,1000');
+    eq(SF.jumpQuizFloors(CFG).join(','), '640,680,720,760,800,840,880,920,960,1000', 'every 40 floors');
     for (const x of Q) ok(x.q && x.choices.length === 4 && x.answer >= 0 && x.answer <= 3 && x.explain, 'quiz at ' + x.floor);
     eq(Q[0].choices[Q[0].answer], 'CaCl₂');
     eq(Q[1].choices[Q[1].answer], '변하지 않는다');
     const jump = { quizDone: new Set() };
     ok(!SF.jumpQuizAt(jump, CFG, 799), 'no quiz on other floors');
     const a = SF.jumpQuizAt(jump, CFG, 800);
-    ok(a && a.no === 1 && a.total === 2, 'quiz 1/2 at 800');
+    ok(a && a.no === 5 && a.total === 10, 'quiz 5/10 at 800');
     const r = SF.answerJumpQuiz(jump, a.q, 800, 1);
     ok(r.correct && r.answer === 1 && r.explain, 'right answer');
     ok(!SF.jumpQuizAt(jump, CFG, 800), 'not asked again');
-    ok(SF.jumpQuizAt(jump, CFG, 1000).no === 2, 'quiz 2/2 at 1000');
+    ok(SF.jumpQuizAt(jump, CFG, 1000).no === 10, 'quiz 10/10 at 1000');
     eq(SF.answerJumpQuiz(jump, Q[1], 1000, 0).correct, false);
     // 두 층 다 폭 전체 쉼터 (문제 푸는 자리)
     const L = SF.buildJumpLevel(CFG);
     ok(L.platforms.some((q) => q.row === 799 && q.rest) && L.platforms.some((q) => q.row === 999 && q.rest), 'rest platforms at 800 and 1000');
+  });
+
+  test('balrog: quiz plan for every rest platform, drop target, mocking lines', () => {
+    const bank = [];
+    for (let i = 1; i <= 40; i++) bank.push({ id: 'q' + i, q: '문제' + i, choices: ['a', 'b', 'c', 'd'], answer: i % 4, explain: '해설' + i });
+    const floors = SF.jumpQuizFloors(CFG);
+    const plan = SF.jumpQuizPlan(CFG, bank, new Set(), SF.makeRng(7));
+    eq(plan.size, 10, 'a question for each of 10 rest platforms');
+    eq(plan.get(800).choices[plan.get(800).answer], 'CaCl₂', 'fixed question at 800');
+    eq(plan.get(1000).choices[plan.get(1000).answer], '변하지 않는다', 'fixed question at 1000');
+    const ids = floors.filter((f) => f !== 800 && f !== 1000).map((f) => plan.get(f).id);
+    eq(new Set(ids).size, 8, 'no repeats among the 8 bank questions');
+    // 이미 푼 문제는 뒤로 밀린다
+    const used = new Set(bank.slice(0, 35).map((q) => q.id));
+    const plan2 = SF.jumpQuizPlan(CFG, bank, used, SF.makeRng(7));
+    ok(floors.filter((f) => f !== 800 && f !== 1000).every((f) => !used.has(plan2.get(f).id)) || bank.length - used.size < 8, 'fresh questions first');
+    // 은행이 작아도 10개를 채운다
+    const small = SF.jumpQuizPlan(CFG, bank.slice(0, 3), new Set(), SF.makeRng(1));
+    eq(small.size, 10, 'small bank still fills every floor');
+    // 떨어질 자리
+    const L = SF.buildJumpLevel(CFG);
+    const n = CFG.jump.balrog.drop;
+    const here = L.platforms.find((q) => q.row === 799);
+    const t = SF.balrogDropTarget(L, here.row, n);
+    ok(t.row <= here.row - n, 'lands at least ' + n + ' rows below: ' + t.row);
+    ok(t.row > here.row - n - 60, 'but not absurdly far: ' + t.row);
+    eq(SF.balrogDropTarget(L, 3, n).row, L.platforms[0].row, 'near the bottom → the start platform');
+    // 부서지는 발판에는 안 내려놓는다 (어느 층에서 틀려도)
+    const cr = new Set(L.crumbles.map((c) => c.row + ':' + c.col));
+    for (const f of SF.jumpQuizFloors(CFG)) {
+      const d = SF.balrogDropTarget(L, f - 1, n);
+      ok(d.row <= f - 1 - n || d === L.platforms[0], 'drop from ' + f + ' goes ≥' + n + ' rows down');
+      let bad = false;
+      for (let c = d.c0; c <= d.c1; c++) if (cr.has(d.row + ':' + c)) bad = true;
+      ok(!bad, 'drop from ' + f + ' lands on a crumbling platform (row ' + d.row + ')');
+    }
+    // 멘트
+    const B = CFG.jump.balrog;
+    ok(B.drop >= 5 && B.drop <= 30, 'drop ' + B.drop);
+    ok(B.wrong.length >= 4 && B.right.length >= 3, 'lines: ' + B.wrong.length + '/' + B.right.length);
+    ok(B.wrong.some((s) => s.includes('{정답}')), 'one line shows the answer');
+    ok(B.fly && B.attack, 'gif paths');
   });
 
   // ---------------------------------------------------------------- 앱을 나갈 때 중간 기록

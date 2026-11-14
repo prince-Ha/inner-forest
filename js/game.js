@@ -17,7 +17,7 @@ window.SF = window.SF || {};
     quiz: $('quiz'), quizHead: $('quiz-head'), quizQ: $('quiz-q'), quizChoices: $('quiz-choices'),
     quizResult: $('quiz-result'), quizVerdict: $('quiz-verdict'), quizExplain: $('quiz-explain'), quizContinue: $('quiz-continue'),
     quizSkip: $('quiz-skip'), readyWho: $('ready-who'), certBtn: $('cert-btn'), testBadge: $('test-badge'),
-    challenge: $('challenge-btn'), up: $('btn-up'),
+    challenge: $('challenge-btn'), up: $('btn-up'), balrog: $('balrog'), balrogLine: $('balrog-line'),
   };
   const PLAYING = (s) => s === 'home' || s === 'ready' || s === 'playing'; // 세상이 움직이는 상태
   const INPUT_OK = (s) => s === 'ready' || s === 'playing'; // ◀▶가 먹는 상태
@@ -361,12 +361,41 @@ window.SF = window.SF || {};
       els.quizChoices.appendChild(b);
     });
     els.quizResult.hidden = true;
+    els.balrogLine.hidden = true;
+    balrogArrive(!!game.jumpQuiz);
     els.quiz.classList.remove('hidden');
     els.quiz.scrollTop = 0;
     sound.play('quiz');
   }
+
+  // ---- 크림슨발록 (점프 숲 퀴즈): 옆에서 기다리다가, 맞히면 날아가고 틀리면 학생을 떨어뜨린다
+  const pickLine = (list, fill) => {
+    const l = list && list.length ? list[Math.floor(Math.random() * list.length)] : '';
+    return String(l).replace('{정답}', fill == null ? '' : fill);
+  };
+  const BAL = () => cfg.jump && cfg.jump.balrog;
+  // GIF를 처음부터 다시 움직이게 주소 뒤에 번호를 붙인다
+  const balrogShow = (src, cls) => {
+    els.balrog.className = 'balrog';
+    void els.balrog.offsetWidth;
+    els.balrog.src = src + '?r=' + Date.now();
+    els.balrog.hidden = false;
+    els.balrog.classList.add(cls);
+  };
+  function balrogArrive(on) {
+    const B = BAL();
+    if (!on || !B) { els.balrog.hidden = true; return; }
+    balrogShow(B.fly, 'arrive');
+    sound.play('gustWarn');
+  }
+  function balrogHide() {
+    els.balrog.hidden = true;
+    els.balrog.className = 'balrog';
+    els.balrogLine.hidden = true;
+  }
   function closeQuiz() {
     els.quiz.classList.add('hidden');
+    balrogHide();
     game.quizQ = null;
     game.jumpQuiz = null;
     game.state = 'playing';
@@ -384,7 +413,24 @@ window.SF = window.SF || {};
       if (i === r.answer) b.classList.add('right');
       else if (i === choice) b.classList.add('wrong');
     });
-    els.quizVerdict.textContent = r.correct ? (game.jumpQuiz ? '정답!' : '정답! +' + cfg.score.perCorrect + '점') : '아쉬워요. 정답은 ' + LETTERS[r.answer];
+    els.quizVerdict.textContent = r.correct ? '정답! +' + cfg.score.perCorrect + '점' : '아쉬워요. 정답은 ' + LETTERS[r.answer];
+    // 점프 숲: 맞히면 발록이 투덜대며 날아가고, 틀리면 놀리며 덮친다 ([계속 오르기]를 누르면 떨어진다)
+    const B = game.jumpQuiz && BAL();
+    game.pendingDrop = 0;
+    if (B) {
+      els.balrogLine.hidden = false;
+      els.balrogLine.className = 'balrog-line' + (r.correct ? ' good' : '');
+      if (r.correct) {
+        els.balrogLine.textContent = pickLine(B.right);
+        balrogShow(B.fly, 'leave');
+        sound.play('gust');
+      } else {
+        els.balrogLine.textContent = pickLine(B.wrong, LETTERS[r.answer]);
+        balrogShow(B.attack, 'attack');
+        game.pendingDrop = B.drop || 10;
+        sound.play('hit');
+      }
+    }
     els.quizVerdict.className = 'quiz-verdict ' + (r.correct ? 'right' : 'wrong');
     els.quizExplain.textContent = r.explain;
     els.quizResult.hidden = false;
@@ -393,7 +439,24 @@ window.SF = window.SF || {};
   };
   game.continueAfterQuiz = function () {
     if (game.state !== 'quiz' || !game.quizAnswered) return;
+    const drop = game.pendingDrop || 0;
+    game.pendingDrop = 0;
     closeQuiz();
+    if (drop) game.startDrop(drop);
+  };
+  // 틀린 학생을 n층 아래 발판으로 떨어뜨린다 (점프 숲). 다 떨어질 때까지 조작이 안 먹고, 착지하면 잠깐 무적
+  game.startDrop = function (n) {
+    if (!game.jump) return;
+    const p = game.player, cs = cfg.world.cell;
+    const pf = SF.balrogDropTarget(game.level, Math.round(p.y / cs), n);
+    const lo = pf.c0 * cs, hi = (pf.c1 + 1) * cs - p.w;
+    p.x = Math.min(hi, Math.max(lo, p.x));
+    p.rope = null;
+    p.grounded = false;
+    p.vx = 0; p.vy = 0;
+    p.airStartY = p.y;
+    p.dropTo = pf.row * cs;
+    game.knocked = true; // 떨어지는 동안은 장애물에 안 맞는다
   };
 
   function placePlayer(x, y) {
@@ -492,7 +555,13 @@ window.SF = window.SF || {};
     // 도전은 600층 기록과 따로 저장되게 새 판 번호 (같은 번호면 시트가 중복으로 보고 무시한다)
     if (!practice) { game.runId = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8); game.snapshotFloor = 0; }
     game.jump.quizDone = new Set(); // 정복 퀴즈는 도전할 때마다 다시
+    game.jump.plan = SF.jumpQuizPlan(cfg, game.bank || SF.QUESTIONS, new Set(((game.quiz && game.quiz.order) || []).map((q) => q.id)),
+      SF.makeRng((Math.random() * 4294967296) >>> 0)); // 층마다 낼 문제 (고정 문제 + 시트 문제은행)
     game.jumpQuiz = null;
+    game.pendingDrop = 0;
+    game.player.dropTo = null;
+    // 발록 GIF 미리 받기
+    if (cfg.jump.balrog) [cfg.jump.balrog.fly, cfg.jump.balrog.attack].forEach((f) => { const im = new Image(); im.src = f; });
     game.bot = false;
     game.popups.length = 0;
     game.particles.length = 0;
@@ -682,6 +751,22 @@ window.SF = window.SF || {};
     game.prev.x = p.x;
     game.prev.y = p.y;
     game.clock += STEP;
+    // 크림슨발록에게 떨어지는 중: 조작 없이 실제 중력으로 목표 발판까지 떨어진다
+    if (p.dropTo != null) {
+      const P = cfg.physics, a = game.anim;
+      p.vy = Math.max(p.vy - P.gravity * STEP, -P.maxFallSpeed);
+      p.y += p.vy * STEP;
+      a.landT += STEP; a.bumpT += STEP; a.flashT += STEP; a.hitT += STEP; a.airT += STEP;
+      if (game.state === 'playing') { game.stats.jumpTime += STEP; game.stats.totalTime += STEP; }
+      if (p.y <= p.dropTo) {
+        const drop = SF.floorAt(p.airStartY) - SF.floorAt(p.dropTo);
+        p.y = p.dropTo; p.vy = 0; p.grounded = true; p.dropTo = null;
+        game.knocked = false;
+        game.grace = cfg.obstacles.graceTime + 0.6; // 착지하고 잠깐은 안 맞는다
+        onEvent({ type: 'land', dropFloors: drop, floor: SF.floorAt(p.y) });
+      }
+      return;
+    }
     let dir = game.state === 'playing' ? tracker.getDir() : 0;
     // 밧줄: ▲ 버튼·↑·W를 누르고 있으면 오르고, ↓·S면 내려간다. ◀▶는 밧줄에서 쓰지 않는다
     let ud = 0;

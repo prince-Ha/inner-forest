@@ -83,6 +83,8 @@
     </div>
 
     <div id="quiz" class="overlay hidden">
+      <!-- 크림슨발록 (점프 숲 퀴즈): 문제를 풀 동안 옆에서 기다린다 -->
+      <img id="balrog" class="balrog" alt="" hidden>
       <div class="panel quiz-panel" role="dialog" aria-labelledby="quiz-q">
         <p id="quiz-head" class="quiz-head">과학 퀴즈</p>
         <p id="quiz-q" class="quiz-q"></p>
@@ -90,6 +92,7 @@
         <div id="quiz-result" class="quiz-result" hidden>
           <p id="quiz-verdict" class="quiz-verdict"></p>
           <p id="quiz-explain" class="quiz-explain"></p>
+          <p id="balrog-line" class="balrog-line" hidden></p>
           <button id="quiz-continue" type="button">계속 오르기</button>
         </div>
         <button id="quiz-skip" type="button" class="menu-btn small" hidden>건너뛰기 (테스트)</button>

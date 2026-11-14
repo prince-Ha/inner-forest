@@ -174,12 +174,30 @@ window.GAME_CONFIG = {
     ],
     // 구간별 난이도 (아래부터). width 발판 폭 [최소, 최대] 칸, minGap 발판 사이 최소 빈칸, twoRowChance 2줄 위로 뛸 확률,
     //   ropeChance 밧줄 확률, hazards 발판마다 장애물 확률, crumble 금 간 발판 확률, gust 돌풍, speed 장애물 빠르기, double 겹칠 확률
+    //   hazards 이름: spikeBall 가시공, monkey 바나나 원숭이, acorn 도토리, rust 녹물 방울(위에서 뚝뚝, 도토리와 같은 움직임)
     bands: [
-      { untilFloor: 700, width: [2, 3], minGap: 1, twoRowChance: 0.6, hazards: { spikeBall: 0.25 } },
-      { untilFloor: 800, width: [1, 2], minGap: 1, twoRowChance: 0.65, hazards: { spikeBall: 0.25, monkey: 0.25 }, crumble: 0.2 },
-      { untilFloor: 900, width: [1, 2], minGap: 1, twoRowChance: 0.7, hazards: { spikeBall: 0.25, monkey: 0.2, acorn: 0.3 }, crumble: 0.3, gust: true, speed: 1.15 },
-      { untilFloor: 1000, width: [1, 2], minGap: 1, twoRowChance: 0.75, hazards: { spikeBall: 0.3, monkey: 0.3, acorn: 0.35 }, crumble: 0.4, gust: true, speed: 1.3, double: 0.35 },
+      { untilFloor: 700, width: [2, 3], minGap: 1, twoRowChance: 0.6, hazards: { spikeBall: 0.25, rust: 0.2 } },
+      { untilFloor: 800, width: [1, 2], minGap: 1, twoRowChance: 0.65, hazards: { spikeBall: 0.25, monkey: 0.25, rust: 0.3 }, crumble: 0.2 },
+      { untilFloor: 900, width: [1, 2], minGap: 1, twoRowChance: 0.7, hazards: { spikeBall: 0.25, monkey: 0.2, acorn: 0.3, rust: 0.3 }, crumble: 0.3, gust: true, speed: 1.15 },
+      { untilFloor: 1000, width: [1, 2], minGap: 1, twoRowChance: 0.75, hazards: { spikeBall: 0.3, monkey: 0.3, acorn: 0.35, rust: 0.4 }, crumble: 0.4, gust: true, speed: 1.3, double: 0.35 },
     ],
+    // 쉼터(40층마다)에서 문제가 나와요: 640·680·…·1000층. 800·1000층은 위 고정 문제, 나머지는 시트 문제은행에서. 0이면 고정 문제 층에서만
+    quizEvery: 40,
+    // 크림슨발록: 문제를 풀 때 옆에서 기다리다가, 맞히면 날아가고 틀리면 학생을 떨어뜨려요
+    balrog: {
+      drop: 10,        // 틀리면 떨어지는 층수 (그 아래 가장 가까운 발판에 내려요)
+      fly: 'assets/balrog/fly.gif',       // 기다리다 날아갈 때 (날개 짓)
+      attack: 'assets/balrog/attack.gif', // 틀린 학생을 덮칠 때
+      right: ['쳇… 맞혔군. 이번엔 봐준다!', '흥, 운이 좋았다!', '다음 문제에서 두고 보자!', '오호, 제법인데? 쳇.'],
+      wrong: [
+        '크하하! 그걸 틀려? 발록이 다 부끄럽다!',
+        '정답은 {정답}! 교과서 한 번만 펴 봐라~ 크큭',
+        '이 정도 문제에 떨어지다니, 날개가 필요하겠는데?',
+        '아래층 구경 잘 다녀와라~ 크하하!',
+        '네 과학 점수가 궁금해지는구나, 크큭.',
+        '발록은 오늘도 즐겁다! 다음 먹잇감은 누구냐!',
+      ],
+    },
   },
 
   // 1000층 정복 축하 움짤 (차례로 겹치며 나타나요). seconds초 뒤 또는 화면을 누르면 증명서로

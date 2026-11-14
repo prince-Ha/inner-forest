@@ -113,11 +113,13 @@ window.SF = window.SF || {};
         const side = (pf.c0 + pf.c1) / 2 <= (cols - 1) / 2 ? 1 : -1;
         return { kind, row: pf.row, side, phase: rng.next() * O.banana.period };
       }
-      if (kind === 'acorn') { // 발판 한 칸 위로 떨어진다. 그 칸 위가 비어 있어야
+      if (kind === 'acorn' || kind === 'rust') { // 발판 한 칸 위로 떨어진다. 그 칸 위가 비어 있어야 (rust = 녹물 방울: 같은 움직임, 모양만 다름)
         const col = rng.int(pf.c0, pf.c1);
         const topRow = pf.row + O.acorn.height;
         for (let r = pf.row + 1; r <= topRow; r++) if (g.get(col, r) !== C.EMPTY) return null;
-        return { kind, col, row: pf.row, topRow, phase: rng.next() * O.acorn.period };
+        const h = { kind: 'acorn', col, row: pf.row, topRow, phase: rng.next() * O.acorn.period };
+        if (kind === 'rust') h.rust = true;
+        return h;
       }
       return null;
     };
@@ -218,12 +220,47 @@ window.SF = window.SF || {};
 window.SF = window.SF || {};
 (function (SF) {
   'use strict';
+  // 점프 숲 퀴즈 층: 쉼터(40층마다) 640·680·…·1000. config.jump.quizEvery 로 간격을 바꾼다 (0이면 고정 문제 층만)
+  SF.jumpQuizFloors = function (cfg) {
+    const J = cfg.jump || {};
+    const fixed = (J.quizzes || []).map((x) => x.floor);
+    const out = new Set(fixed);
+    if (J.quizEvery > 0) for (let f = cfg.totalFloors + J.quizEvery; f <= J.topFloor; f += J.quizEvery) out.add(f);
+    return [...out].sort((a, b) => a - b);
+  };
+  // 한 번의 도전에서 층마다 낼 문제 정하기: 고정 문제 + 나머지는 문제은행에서 (1~600층에서 안 푼 문제부터, 모자라면 다시)
+  SF.jumpQuizPlan = function (cfg, bank, usedIds, rng) {
+    const plan = new Map();
+    const fixed = new Map(((cfg.jump && cfg.jump.quizzes) || []).map((x) => [x.floor, x]));
+    const floors = SF.jumpQuizFloors(cfg);
+    const shuffle = (a) => { const b = a.slice(); for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(rng.next() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
+    const fresh = shuffle(bank.filter((q) => !usedIds.has(q.id)));
+    const rest = shuffle(bank.filter((q) => usedIds.has(q.id)));
+    const pool = fresh.concat(rest);
+    let k = 0;
+    for (const f of floors) {
+      if (fixed.has(f)) plan.set(f, fixed.get(f));
+      else if (pool.length) { plan.set(f, pool[k % pool.length]); k++; }
+    }
+    return plan;
+  };
   // 이 층에 아직 안 푼 정복 퀴즈가 있으면 { q, no, total }
   SF.jumpQuizAt = function (jump, cfg, floor) {
-    const list = (cfg.jump && cfg.jump.quizzes) || [];
-    const i = list.findIndex((x) => x.floor === floor);
-    if (i < 0 || !jump || (jump.quizDone && jump.quizDone.has(floor))) return null;
-    return { q: list[i], no: i + 1, total: list.length };
+    if (!jump || (jump.quizDone && jump.quizDone.has(floor))) return null;
+    const floors = SF.jumpQuizFloors(cfg);
+    const i = floors.indexOf(floor);
+    if (i < 0) return null;
+    const q = (jump.plan && jump.plan.get(floor)) || ((cfg.jump.quizzes || []).find((x) => x.floor === floor));
+    return q ? { q, no: i + 1, total: floors.length } : null;
+  };
+  // 크림슨발록이 틀린 학생을 떨어뜨릴 자리: 지금 선 줄에서 n줄 아래보다 낮거나 같은 가장 높은 발판 (없으면 시작 발판).
+  // 금 간(부서지는) 발판은 피한다: 거기 내려놓으면 곧 부서져서 n층보다 훨씬 더 떨어진다
+  SF.balrogDropTarget = function (level, rowNow, n) {
+    const cr = new Set((level.crumbles || []).map((c) => c.row + ':' + c.col));
+    const solid = (q) => { for (let c = q.c0; c <= q.c1; c++) if (cr.has(q.row + ':' + c)) return false; return true; };
+    let best = level.platforms[0];
+    for (const q of level.platforms) if (q.row <= rowNow - n && q.row > best.row && solid(q)) best = q;
+    return best;
   };
   // 답하기: 그 층은 다시 안 나온다. 결과는 SF.answerQuiz와 같은 모양
   SF.answerJumpQuiz = function (jump, q, floor, choice) {

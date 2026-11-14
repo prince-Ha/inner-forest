@@ -447,6 +447,9 @@ window.SF = window.SF || {};
 
   const ACORN = ['..kk..', '.kCCk.', 'kCcCCk', 'kkkkkk', 'knhnnk', 'knnnNk', '.kNNk.', '..kk..'];
   const ACORN_PAL = { k: '#3a2210', C: '#7a4a22', c: '#9a6232', n: '#c9873a', N: '#a5682a', h: '#f0c27a' };
+  // 녹물 방울 (점프 숲): 도토리와 같은 움직임, 주황빛 녹슨 물방울
+  const RUST = ['..kk..', '..kk..', '.kRRk.', 'kRrRRk', 'kRRRRk', 'kRRRRk', '.kRRk.', '..kk..'];
+  const RUST_PAL = { k: '#3a1a0a', R: '#b5541d', r: '#f0b070' };
   const CRACK = [
     '................',
     '................',
@@ -513,6 +516,7 @@ window.SF = window.SF || {};
       monkey: monkeyFrames(),
       banana: bananaFrames(),
       acorn: SF.pixelCanvas(ACORN, ACORN_PAL),
+      rust: SF.pixelCanvas(RUST, RUST_PAL),
       crack: SF.pixelCanvas(CRACK, { k: '#2a170a' }),
       sign: { ask: SF.pixelCanvas(SIGN_Q, SIGN_PAL), done: SF.pixelCanvas(SIGN_OK, SIGN_PAL) },
     };
